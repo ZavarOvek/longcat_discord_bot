@@ -1,0 +1,39 @@
+{
+  "_це_приклад": "Файл-шаблон. Мердж читає лише agents/wengines/discs/bangboo.json — цей файл ігнорується. Копіюй блок divergences у свій curated/agents.json (чи інший) під потрібний id.",
+
+  "1091": {
+    "tier": "S+ (Shiyu / Deadly Assault)",
+    "notes": "База M0S0. F2P: Marcato Desire R5 — геп до сигнатурки ~12-15%.",
+    "divergences": [
+      {
+        "topic": "stats",
+        "cn": "спершу crit ratio 70/140, лише потім скейлити ATK",
+        "west": "пріоритет AP/ATK, крит — за залишковим принципом",
+        "reason": "CN рахує під довгі ротації Deadly Assault з повним аптаймом Frost; West — під короткі клір-цикли Shiyu без умов",
+        "verdict": "situational",
+        "confidence": "medium",
+        "patch": "3.0",
+        "note": "для DA — CN-підхід, для швидких клірів — West"
+      },
+      {
+        "topic": "discs",
+        "cn": "4pc Polar Metal — вища стеля",
+        "west": "4pc Woodpecker Electro — стабільніше без умов аптайму",
+        "reason": "різні припущення про якість сабстатів і тривалість бою",
+        "verdict": "cn",
+        "confidence": "high",
+        "patch": "3.0"
+      }
+    ]
+  },
+
+  "_довідка_полів": {
+    "topic": "discs | wengine | stats | mindscapes | team | rotation | tier",
+    "cn / west": "стисла позиція кожної сторони (обов'язкові)",
+    "reason": "ЧОМУ розійшлись — найцінніше поле",
+    "verdict": "cn | west | situational | open — твій вибір",
+    "confidence": "high | medium | low",
+    "patch": "версія гри на момент звірки — без нього не буде попереджень про застарілість",
+    "note": "вільний коментар (опційно)"
+  }
+}

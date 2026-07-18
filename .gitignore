@@ -1,0 +1,20 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+bot.db
+bot.db-wal
+bot.db-shm
+bot.log
+.idea/
+.pytest_cache/
+
+# Згенеровані ZZZ-бази (робляться через `python -m zzz.build_db`, не версіонуються).
+# Кураторські нотатки в data/zzz/curated/ — навпаки, лишаються в репо.
+data/zzz/agents.json
+data/zzz/wengines.json
+data/zzz/discs.json
+data/zzz/bangboo.json
+data/zzz/meta.json
+zzz/data/
