@@ -1,5 +1,9 @@
 # 🐈‍⬛ LongCat Discord Bot
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](CHANGELOG.md)
+
 Персональний Discord-бот на Python: LLM-чат на базі **Meituan LongCat-2.0**
 (OpenAI-сумісний API) з інструментами й пам'яттю розмов + класичний набір
 серверних фіч (модерація, нагадування, опитування, рівні). Запускається
@@ -7,26 +11,31 @@
 
 ## Можливості
 
-- 🤖 **Чат з LongCat** — @згадай бота, відповідай реплаєм на його повідомлення або пиши в DM.
-  Пам'ять розмови окрема для кожного каналу/гілки, переживає рестарт.
-  У моделі є інструменти: поточний час, інфо про сервер/користувача,
-  останні повідомлення каналу, створення нагадувань та опитувань, кубики,
-  а також (опційно) **вікі та веб-пошук** для перевірки фактів.
-- 🎨 **Оформлення відповідей** (кожне вимикається у `.env`): ембеди з кольором за режимом
-  каналу, футер зі статистикою (викликані тули + витрачені токени), кнопки
-  🔁 «Переролити» (лише автор запиту) і 🧹 «Забути розмову».
-- 🌐 **Мовний страж** (`LANG_GUARD`) — детермінований ретрай, якщо модель зісковзнула
-  на мову співрозмовника попри персону.
-- ⚡ **Режим ZZZ-радника** (Zenless Zone Zero) — `/mode`: локальна база агентів,
-  W-Engine, дисків і банбу; авто-підкладка даних по згаданих сутностях
-  (з транслітерацією кирилиці й відмінюванням), матчер банбу під склад команди,
-  попередження про CN/West-розбіжності та застарілі дані. `/zzz_reload` перечитує базу.
-- 🛠 Утиліти: `/ping` `/serverinfo` `/userinfo` `/avatar` `/help`
-- 🛡 Модерація: `/purge` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/warn` `/warns` `/clearwarns` `/slowmode`
-- 📊 `/poll` — нативні опитування Discord
-- ⏰ `/remind` `/reminders` `/reminder_delete` — персистентні нагадування
-- 👋 Привітання новачків (опційно, `WELCOME_CHANNEL_ID`)
-- 🏆 XP-рівні як у MEE6: `/rank` `/leaderboard` (опційно, `LEVELS_ENABLED`)
+**LLM-чат з LongCat.** Бот відповідає на згадку, реплай на своє повідомлення
+або будь-яке повідомлення в DM. Пам'ять розмови зберігається окремо для
+кожного каналу й гілки та переживає рестарт. Моделі доступні інструменти:
+поточний час, інфо про сервер і користувача, останні повідомлення каналу,
+створення нагадувань і опитувань, кубики, а також (опційно) вікі та
+веб-пошук для перевірки фактів.
+
+**Оформлення відповідей.** Кожен елемент вимикається окремо в `.env`:
+ембеди з кольором залежно від режиму каналу, футер зі статистикою (які
+інструменти викликались і скільки витрачено токенів), кнопки 🔁
+«Переролити» (доступна лише автору запиту) і 🧹 «Забути розмову».
+
+**Мовний вартовий** (`LANG_GUARD`) — детермінований ретрай на випадок, якщо
+модель відповіла не тією мовою попри задану персону.
+
+**Режим ZZZ-радника** (Zenless Zone Zero, `/mode`) — локальна база агентів,
+W-Engine, дисків і банбу з авто-підкладкою даних по сутностях, згаданих у
+повідомленні (транслітерація кирилиці, відмінювання), матчером банбу під
+склад команди та попередженнями про розбіжності CN/West і застарілі дані.
+`/zzz_reload` перечитує базу без рестарту бота.
+
+Плюс класичний набір серверних команд: модерація (`/purge` `/timeout`
+`/kick` `/ban` `/warn` та інші), персистентні нагадування (`/remind`
+`/reminders`), нативні опитування Discord (`/poll`), привітання новачків і
+XP-рівні на кшталт MEE6 (`/rank` `/leaderboard`) — останні два опційні.
 
 ## Вимоги
 
@@ -35,26 +44,29 @@
 
 ## Установка
 
-### 1. Створи Discord-застосунок
+### 1. Створення Discord-застосунку
 
-1. <https://discord.com/developers/applications> → **New Application**
-2. Вкладка **Bot** → **Reset Token** → скопіюй токен (це `DISCORD_TOKEN`)
-3. Там само нижче, **Privileged Gateway Intents** — увімкни **обидва** і натисни Save:
-   - ✅ **MESSAGE CONTENT INTENT** — без нього бот не бачить текст повідомлень
-   - ✅ **SERVER MEMBERS INTENT** — привітання новачків, пошук учасників
+1. Відкрити <https://discord.com/developers/applications> → **New Application**.
+2. Вкладка **Bot** → **Reset Token** → скопіювати токен (це `DISCORD_TOKEN`).
+3. Там само нижче, у **Privileged Gateway Intents**, увімкнути обидва пункти
+   і натиснути Save:
+   - **MESSAGE CONTENT INTENT** — без нього бот не бачить текст повідомлень.
+   - **SERVER MEMBERS INTENT** — потрібен для привітань новачків і пошуку
+     учасників.
 
-### 2. Запроси бота на сервер
+### 2. Запрошення бота на сервер
 
 Вкладка **OAuth2 → URL Generator**:
 
-- Scopes: `bot` + `applications.commands`
-- Bot Permissions: для власного сервера найпростіше **Administrator**; мінімальний набір —
-  View Channels, Send Messages, Send Messages in Threads, Embed Links, Attach Files,
-  Add Reactions, Read Message History, Manage Messages, Moderate Members, Kick Members,
-  Ban Members, Manage Channels, Create Polls
-- Відкрий згенерований лінк і додай бота на сервер.
+- Scopes: `bot` + `applications.commands`.
+- Bot Permissions: для власного сервера найпростіше вибрати
+  **Administrator**; мінімальний набір — View Channels, Send Messages, Send
+  Messages in Threads, Embed Links, Attach Files, Add Reactions, Read
+  Message History, Manage Messages, Moderate Members, Kick Members, Ban
+  Members, Manage Channels, Create Polls.
+- Відкрити згенероване посилання і додати бота на сервер.
 
-### 3. Налаштуй і запусти
+### 3. Налаштування і запуск
 
 ```bat
 :: Windows
@@ -62,17 +74,18 @@ py -3 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-:: заповни DISCORD_TOKEN і LONGCAT_API_KEY у .env
+:: заповнити DISCORD_TOKEN і LONGCAT_API_KEY у .env
 py bot.py
 ```
 
-Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`, далі так само.
-У PyCharm: Settings → Project → Python Interpreter → обери `.venv`.
+Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`, далі так
+само. У PyCharm: Settings → Project → Python Interpreter → обрати `.venv`.
 
-**Важливо:** впиши ID свого сервера в `GUILD_IDS` — slash-команди з'являться миттєво.
-Без цього глобальний sync триває до години. ID сервера: увімкни Developer Mode
-(User Settings → Advanced), ПКМ по назві сервера → Copy Server ID. Додаєш бота
-на другий сервер — просто допиши його ID через кому і перезапусти.
+**Важливо:** ID сервера варто вписати в `GUILD_IDS` — тоді slash-команди
+з'являються миттєво, без цього глобальна синхронізація триває до години.
+Дізнатися ID: увімкнути Developer Mode (User Settings → Advanced), клацнути
+правою кнопкою на назві сервера → Copy Server ID. Для кількох серверів ID
+достатньо перелічити через кому.
 
 ## Як працює чат
 
@@ -89,7 +102,7 @@ Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`, далі та
 - **Оформлення:** `EMBED_REPLIES` — відповіді в ембедах (колір за режимом каналу),
   `FOOTER_STATS` — футер із викликаними тулами й витраченими токенами,
   `REPLY_BUTTONS` — кнопки 🔁 (переролити, лише автор) і 🧹 (забути розмову).
-- **Мовний страж:** `LANG_GUARD=ru` — якщо відповідь вийшла повністю українською,
+- **Мовний вартовий:** `LANG_GUARD=ru` — якщо відповідь вийшла повністю українською,
   бот робить один коригувальний ретрай російською (детермінована евристика за
   літерами і/ї/є/ґ, службові тексти в ретрай не потрапляють).
 - **Режим ZZZ:** `/mode` перемикає канал у ZZZ-радника. У цьому режимі до промпта
@@ -146,7 +159,7 @@ longcat-discord-bot/
 │   ├── tools.py        # ZZZ-режим: промпт і схеми інструментів
 │   └── build_db.py     # офлайн-генератор JSON-баз із hakushin (у ран-таймі не потрібен)
 ├── cogs/
-│   ├── chat.py         # LLM-чат (згадка/реплай/DM), ембеди/кнопки, мовний страж, /reset, /context
+│   ├── chat.py         # LLM-чат (згадка/реплай/DM), ембеди/кнопки, мовний вартовий, /reset, /context
 │   ├── zzz.py          # /mode, /zzz_reload
 │   ├── utility.py  moderation.py  fun.py
 │   ├── polls.py  reminders.py  welcome.py  levels.py
@@ -169,15 +182,19 @@ pytest -q
 
 | Симптом | Причина / рішення |
 | --- | --- |
-| `PrivilegedIntentsRequired` при старті | Увімкни MESSAGE CONTENT + SERVER MEMBERS у Dev Portal → Bot |
-| Slash-команди не з'являються | Впиши `GUILD_IDS` і перезапусти бота; перезавантаж клієнт Discord (Ctrl+R). Глобальний sync — до 1 години |
+| `PrivilegedIntentsRequired` при старті | Увімкнути MESSAGE CONTENT + SERVER MEMBERS у Dev Portal → Bot |
+| Slash-команди не з'являються | Вписати `GUILD_IDS` і перезапустити бота; перезавантажити клієнт Discord (Ctrl+R). Глобальний sync — до 1 години |
 | Бот не реагує на реплаї без пінга | Не ввімкнений MESSAGE CONTENT INTENT |
 | Кракозябри в консолі Windows | Лише відображення: повний лог у `bot.log` (UTF-8). За бажання `set PYTHONIOENCODING=utf-8` |
 | `LongCat API 401` | Невірний `LONGCAT_API_KEY` |
-| Часті 429 | Квота/ліміт запитів: ретраї з бекофом уже вбудовані; зменш `LLM_MAX_CONCURRENCY`, перевір квоту на платформі |
+| Часті 429 | Квота/ліміт запитів: ретраї з бекофом уже вбудовані; зменшити `LLM_MAX_CONCURRENCY`, перевірити квоту на платформі |
 | `LongCat API 400` зі згадкою `tools` | Ендпоінт відмовив у function calling — тимчасово можна прибрати інструменти (передавати `tools=None` у `run_agent`) або перевести клієнт на Anthropic-сумісний ендпоінт `/anthropic/v1` |
-| Timeout/kick/ban «роль нижча» | Підніми роль бота вище цілі: Server Settings → Roles |
+| Timeout/kick/ban «роль нижча» | Підняти роль бота вище цілі: Server Settings → Roles |
 | Опитування відхилено | Ліміти Discord: питання ≤300 символів, 2–10 варіантів ≤55 символів, тривалість ≤768 год |
+
+## Changelog
+
+Історія значних змін — у [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Ідеї на потім
 
@@ -186,3 +203,7 @@ pytest -q
 - Експорт діалогу канала в файл — готовий матеріал для фідбек-форми LongCat
 - Daily-лічильник витрачених токенів у БД + команда `/quota`
 - Щоденний бекап `bot.db` + curated-даних ZZZ
+
+## Ліцензія
+
+[MIT](LICENSE)

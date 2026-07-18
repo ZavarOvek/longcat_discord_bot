@@ -1,7 +1,7 @@
 """Тести cogs.chat:
 - build_footer / build_embeds (чисте оформлення, без Discord-мережі);
 - _clear_history лишає RESET_MARKER першим у пам'яті;
-- мовний страж у _run: український текст при lang_guard="ru" ретраїться,
+- мовний вартовий у _run: український текст при lang_guard="ru" ретраїться,
   вдалий ретрай замінює відповідь і додає ярлик; невдалий — лишає як є.
 
 run_agent мокається на рівні модуля cogs.chat, тому реальний LLM не потрібен.
@@ -192,14 +192,14 @@ async def test_clear_history_empty_channel():
     assert db.messages == [{"role": "user", "content": ChatCog.RESET_MARKER}]
 
 
-# ---------------- мовний страж у _run ----------------
+# ---------------- мовний вартовий у _run ----------------
 
 @pytest.mark.asyncio
 async def test_lang_guard_retries_ukrainian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard="ru")))
 
-    # 1-й прогін — українською (страж має спрацювати), ретрай — російською.
+    # 1-й прогін — українською (вартовий має спрацювати), ретрай — російською.
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
     scripted = [
         AgentResult(text=ua, llm_calls=1),
@@ -251,7 +251,7 @@ async def test_lang_guard_disabled(monkeypatch):
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, _ = await cog._run(_message(cog.bot))
-    # страж вимкнено — ретраю немає, лишається українська
+    # вартовий вимкнено — ретраю немає, лишається українська
     assert calls == [6]  # рівно один прогін (max_tool_iterations)
     assert "🌐 мовний ретрай" not in result.tool_calls
 
@@ -281,7 +281,7 @@ async def test_lang_guard_failed_retry_keeps_original(monkeypatch):
 
 
 # ---------------- характеризація _run (фіксація до рефакторингу) ----------------
-# Ці тести пришпилюють поточну поведінку _run: порядок fix_tables → страж →
+# Ці тести пришпилюють поточну поведінку _run: порядок fix_tables → вартовий →
 # мітки → запис в історію. Після розбиття _run вони мають лишитись незмінними.
 
 
@@ -315,7 +315,7 @@ async def test_run_no_guard_stores_and_returns(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_run_applies_fix_tables_before_guard(monkeypatch):
-    # fix_tables перетворює |-таблицю на рядки; страж дивиться вже на виправлений текст
+    # fix_tables перетворює |-таблицю на рядки; вартовий дивиться вже на виправлений текст
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard="ru")))
 
@@ -339,7 +339,7 @@ async def test_run_retry_called_at_most_once(monkeypatch):
 
     ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм ще"
     calls = []
-    # обидва прогони українською: якби ретраїв було >1, страж зациклився б
+    # обидва прогони українською: якби ретраїв було >1, вартовий зациклився б
     scripted = [AgentResult(text=ua, llm_calls=1), AgentResult(text=ua, llm_calls=1)]
 
     async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
@@ -394,7 +394,7 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
 
     result, _ = await cog._run(_message(cog.bot))
     assert result.text == "Ответ по-русски"
-    # мітка авто-контексту попереду, стражева мітка — після неї
+    # мітка авто-контексту попереду, мітка вартового — після неї
     assert result.tool_calls == ["📦 Miyabi", "🌐 мовний ретрай"]
 
 
@@ -444,7 +444,7 @@ async def test_run_thinking_none_in_normal(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
-    # ретрай мовного стража в zzz успадковує thinking=False основного прогону
+    # ретрай мовного вартового в zzz успадковує thinking=False основного прогону
     db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
     bot = _bot(db, _config(lang_guard="ru"))
     bot.zzz_db = FakeZZZ(block="", labels=[])
@@ -465,5 +465,5 @@ async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
 
     result, _ = await cog._run(_message(cog.bot))
     assert result.text == "Ответ по-русски"
-    # обидва виклики (основний + ретрай стража) з thinking=False
+    # обидва виклики (основний + ретрай вартового) з thinking=False
     assert seen == [False, False]

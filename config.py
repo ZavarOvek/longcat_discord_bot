@@ -69,7 +69,7 @@ class Config:
     reply_buttons: bool
     # веб-тули (wiki + web_search) для LLM
     web_tools: bool
-    # мовний страж: "ru" = ретраїти повністю українські відповіді, "" = вимкнено
+    # мовний вартовий: "ru" = ретраїти повністю українські відповіді, "" = вимкнено
     lang_guard: str
     # інше
     database_path: str
