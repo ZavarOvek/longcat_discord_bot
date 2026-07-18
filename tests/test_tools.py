@@ -29,15 +29,18 @@ def _msg(content=None, tool_calls=None):
 
 class FakeLLM:
     """Віддає заздалегідь задані відповіді по черзі. Запам'ятовує, чи були
-    передані tools у кожному виклику (для перевірки «останнє коло без тулів»)."""
+    передані tools у кожному виклику (для перевірки «останнє коло без тулів»)
+    і яке значення thinking прокинули (для перевірки пер-режимного вимкнення)."""
 
     def __init__(self, scripted):
         self._scripted = list(scripted)
         self.tools_seen: list[bool] = []
+        self.thinking_seen: list = []
         self.calls = 0
 
-    async def chat(self, messages, tools=None):
+    async def chat(self, messages, tools=None, thinking=None):
         self.tools_seen.append(tools is not None)
+        self.thinking_seen.append(thinking)
         self.calls += 1
         message, ptok, ctok = self._scripted.pop(0)
         return ChatResult(message=message, prompt_tokens=ptok, completion_tokens=ctok)
@@ -210,6 +213,111 @@ async def test_web_search_failure_graceful(tctx, monkeypatch):
     monkeypatch.setattr(tools_mod.asyncio, "to_thread", bad_to_thread)
     result = await tools_mod.tool_web_search(tctx, "щось")
     assert "Пошук недоступний" in result
+
+
+# ---------------- run_agent: прокидання thinking ----------------
+
+async def test_run_agent_thinking_passed_through(tctx):
+    """thinking із виклику run_agent доходить незмінним до кожного llm.chat."""
+    llm = FakeLLM([(_msg(content="ок"), 10, 2)])
+    await run_agent(llm, [], tctx, max_iterations=6, schemas=[], thinking=False)
+    assert llm.thinking_seen == [False]
+
+
+async def test_run_agent_thinking_default_none(tctx):
+    """Без явного thinking run_agent нічого не нав'язує (None = не чіпати cfg)."""
+    llm = FakeLLM([(_msg(content="ок"), 10, 2)])
+    await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    assert llm.thinking_seen == [None]
+
+
+async def test_run_agent_thinking_same_on_every_iteration(tctx, monkeypatch):
+    async def fake_execute(name, arguments, tctx):
+        return "ok"
+
+    monkeypatch.setattr(tools_mod, "execute_tool", fake_execute)
+    llm = FakeLLM([
+        (_msg(content=None, tool_calls=[_tool_call("c1", "get_current_time")]), 10, 1),
+        (_msg(content="готово"), 5, 1),
+    ])
+    await run_agent(llm, [], tctx, max_iterations=6, schemas=[{"x": 1}], thinking=False)
+    assert llm.thinking_seen == [False, False]
+
+
+# ---------------- run_agent: санітайзер розмітки tool-викликів ----------------
+# Пінінг інциденту 18.07: LongCat при thinking×tools видає текстові
+# <longcat_tool_call> у content замість структурного tool_calls. Санітайзер
+# НЕ виконує ці виклики (це зняло б обмеження кроків у момент штопора) —
+# він робить один корекційний ретрай, а брудний залишок вирізає регексом.
+
+_DIRTY = "Ось білд <longcat_tool_call>zzz_describe<longcat_arg_key>kind"
+
+
+async def test_sanitizer_clean_final_untouched(tctx):
+    """Чистий фінал без розмітки — жодного зайвого виклику, жодної мітки."""
+    llm = FakeLLM([(_msg(content="звичайна відповідь"), 10, 2)])
+    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    assert result.text == "звичайна відповідь"
+    assert result.llm_calls == 1
+    assert "🧯 маркап-ретрай" not in result.tool_calls
+
+
+async def test_sanitizer_dirty_then_clean_retry(tctx):
+    """Брудний фінал → один корекційний ретрай → чистий текст + мітка."""
+    llm = FakeLLM([
+        (_msg(content=_DIRTY), 10, 2),
+        (_msg(content="Ось нормальний білд без розмітки."), 8, 3),
+    ])
+    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    assert result.text == "Ось нормальний білд без розмітки."
+    assert "<longcat_tool_call" not in result.text
+    assert result.tool_calls == ["🧯 маркап-ретрай"]
+    assert result.llm_calls == 2
+    # корекційний ретрай іде без інструментів
+    assert llm.tools_seen[-1] is False
+
+
+async def test_sanitizer_double_dirty_strips_and_fallback(tctx):
+    """Брудно і в ретраї → вирізаємо блоки; якщо лишилось <30 симв. — фолбек."""
+    llm = FakeLLM([
+        (_msg(content=_DIRTY), 10, 2),
+        (_msg(content="<longcat_tool_call>zzz_search<longcat_arg_key>query"), 8, 3),
+    ])
+    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    assert "<longcat_tool_call" not in result.text
+    assert "переформулюй" in result.text or "/reset" in result.text
+    assert result.tool_calls == ["🧯 маркап-ретрай"]
+
+
+async def test_sanitizer_double_dirty_strips_keeps_remainder(tctx):
+    """Брудно і в ретраї, але лишається >30 симв. корисного тексту — беремо його."""
+    tail = "Коротко: качай сигнатурку, диски 4+2, це головне для цього агента."
+    llm = FakeLLM([
+        (_msg(content=_DIRTY), 10, 2),
+        (_msg(content=f"{tail} <longcat_tool_call>zzz_search<longcat_arg_key>q"), 8, 3),
+    ])
+    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    assert "<longcat_tool_call" not in result.text
+    assert tail in result.text
+    assert result.tool_calls == ["🧯 маркап-ретрай"]
+
+
+async def test_sanitizer_markup_not_in_final_ignored(tctx, monkeypatch):
+    """Розмітка в проміжному кроці (де є структурні tool_calls) не тригерить
+    санітайзер — чіпаємо лише фінальний текстовий крок."""
+    async def fake_execute(name, arguments, tctx):
+        return "ok"
+
+    monkeypatch.setattr(tools_mod, "execute_tool", fake_execute)
+    llm = FakeLLM([
+        # проміжний крок: є структурні tool_calls, а в content — сміття
+        (_msg(content=_DIRTY, tool_calls=[_tool_call("c1", "get_current_time")]), 10, 1),
+        (_msg(content="Чистий фінал."), 5, 1),
+    ])
+    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[{"x": 1}])
+    assert result.text == "Чистий фінал."
+    assert "🧯 маркап-ретрай" not in result.tool_calls
+    assert result.llm_calls == 2
 
 
 # ---------------- AgentResult дефолти ----------------

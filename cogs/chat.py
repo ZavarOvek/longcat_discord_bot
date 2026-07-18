@@ -30,6 +30,11 @@ PLAIN_LIMIT = 1900
 FOOTER_FIT_LIMIT = 1990  # футер тулиться в останній чанк, лише якщо влазить у ліміт Discord
 VIEW_TIMEOUT = 300  # секунд до самознищення кнопок
 
+# У ZZZ-режимі мислення примусово вимкнене: thinking×function-calling у LongCat-2.0
+# дає текстові <longcat_tool_call> у content замість структурних tool_calls
+# (інцидент 18.07). None у звичайних каналах = лишити рішення за cfg.thinking.
+ZZZ_THINKING_OVERRIDE = False
+
 
 def build_footer(result: AgentResult) -> str:
     """Компактний підпис: тули + токени + кількість викликів LLM."""
@@ -199,7 +204,7 @@ class ChatCog(commands.Cog, name="Чат"):
         cfg = self.bot.config
         rows = await db.get_chat_history(message.channel.id)
 
-        system_suffix, schemas, zzz_mode, auto_labels = await self._resolve_mode(message, rows)
+        system_suffix, schemas, zzz_mode, auto_labels, thinking = await self._resolve_mode(message, rows)
 
         messages = build_messages(
             cfg,
@@ -210,11 +215,13 @@ class ChatCog(commands.Cog, name="Чат"):
             system_suffix=system_suffix,
         )
         tctx = ToolContext(bot=self.bot, message=message, db=db)
-        result = await run_agent(self.bot.llm, messages, tctx, cfg.max_tool_iterations, schemas=schemas)
+        result = await run_agent(
+            self.bot.llm, messages, tctx, cfg.max_tool_iterations, schemas=schemas, thinking=thinking
+        )
         result.text = fix_tables(result.text)
 
         if cfg.lang_guard == "ru" and looks_ukrainian(result.text):
-            await self._apply_lang_guard(result, messages, tctx, schemas)
+            await self._apply_lang_guard(result, messages, tctx, schemas, thinking)
 
         if auto_labels:
             result.tool_calls[:0] = [f"📦 {label}" for label in auto_labels]
@@ -225,15 +232,16 @@ class ChatCog(commands.Cog, name="Чат"):
 
     async def _resolve_mode(
         self, message: discord.Message, rows: list[dict]
-    ) -> tuple[str, list, bool, list[str]]:
-        """Режим каналу: системний доважок, набір тулів, прапорець ZZZ і мітки
-        авто-контексту (детермінована підкладка даних по сутностях повідомлення)."""
+    ) -> tuple[str, list, bool, list[str], bool | None]:
+        """Режим каналу: системний доважок, набір тулів, прапорець ZZZ, мітки
+        авто-контексту (детермінована підкладка даних по сутностях повідомлення)
+        і thinking_override (False у ZZZ, None у звичайному — див. ZZZ_THINKING_OVERRIDE)."""
         cfg = self.bot.config
         schemas = list(TOOL_SCHEMAS) if cfg.web_tools else list(BASE_TOOL_SCHEMAS)
         zzz_db = getattr(self.bot, "zzz_db", None)
         zzz_mode = zzz_db is not None and await self.bot.db.get_channel_mode(message.channel.id) == "zzz"
         if not zzz_mode:
-            return "", schemas, False, []
+            return "", schemas, False, [], None
 
         system_suffix = ZZZ_MODE_PROMPT.format(version=zzz_db.meta.get("game_version", "?"))
         schemas = schemas + ZZZ_TOOL_SCHEMAS
@@ -241,13 +249,15 @@ class ChatCog(commands.Cog, name="Чат"):
         auto_block, auto_labels = zzz_db.auto_context(last_user)
         if auto_block:
             system_suffix = f"{system_suffix}\n\n{auto_block}"
-        return system_suffix, schemas, True, auto_labels
+        return system_suffix, schemas, True, auto_labels, ZZZ_THINKING_OVERRIDE
 
     async def _apply_lang_guard(
-        self, result: AgentResult, messages: list[dict], tctx: ToolContext, schemas: list
+        self, result: AgentResult, messages: list[dict], tctx: ToolContext,
+        schemas: list, thinking: bool | None,
     ) -> None:
         """Коригувальний ретрай, коли LongCat дзеркалить українську попри персону.
-        Мутує result: один ретрай, і лише вдалий (не-український) замінює текст."""
+        Мутує result: один ретрай, і лише вдалий (не-український) замінює текст.
+        thinking успадковується від основного прогону (у ZZZ лишається вимкненим)."""
         log.info("Мовний страж: відповідь українською, роблю коригувальний ретрай")
         messages.append({"role": "assistant", "content": result.text})
         messages.append(
@@ -260,7 +270,7 @@ class ChatCog(commands.Cog, name="Чат"):
                 ),
             }
         )
-        retry = await run_agent(self.bot.llm, messages, tctx, 1, schemas=schemas)
+        retry = await run_agent(self.bot.llm, messages, tctx, 1, schemas=schemas, thinking=thinking)
         result.prompt_tokens += retry.prompt_tokens
         result.completion_tokens += retry.completion_tokens
         result.llm_calls += retry.llm_calls

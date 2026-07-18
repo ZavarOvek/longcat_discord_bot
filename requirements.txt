@@ -3,3 +3,4 @@ openai>=1.60.0
 aiosqlite>=0.20.0
 python-dotenv>=1.0.1
 ddgs>=9.0
+hakushin-py>=0.4

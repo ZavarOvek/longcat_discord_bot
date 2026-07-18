@@ -30,7 +30,7 @@ EXTENSIONS = [
 
 
 def setup_logging(cfg: Config) -> None:
-    # Windows + cp1251: щоб юнікод у консолі не валив бота (перевірено Длиннокотом),
+    # Windows + cp1251: щоб юнікод у консолі не валив бота (перевірено Довгокотом),
     # переводимо stdout/stderr в utf-8 з errors="replace"; повний лог — у файлі.
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

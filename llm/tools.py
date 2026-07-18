@@ -459,23 +459,67 @@ class AgentResult:
     llm_calls: int = 0
 
 
+# Санітайзер розмітки tool-викликів (страховка, НЕ виконавець).
+# Інцидент 18.07: LongCat при thinking×tools подеколи видає виклики текстом —
+# <longcat_tool_call>name<longcat_arg_key>… — у content замість структурного
+# tool_calls. Корінь лікує пер-режимне вимкнення thinking; це другий шар на
+# випадок, якщо розмітка все ж протекла у фінальний текст. Свідомо НЕ парсимо й
+# НЕ виконуємо ці виклики: на фінальній ітерації це зняло б обмеження кроків
+# саме в момент штопора. Замість цього — один корекційний ретрай без тулів, а
+# брудний залишок вирізаємо регексом.
+_MARKUP_MARKER = "<longcat_tool_call"
+_MARKUP_RE = re.compile(r"<longcat_tool_call.*?(?=<longcat_tool_call|$)", re.DOTALL)
+_MARKUP_MIN_REMAINDER = 30
+_MARKUP_FALLBACK = "⚠️ Не вклався в ліміт кроків — переформулюй запит або /reset."
+_MARKUP_RETRY_NOTE = (
+    "(система: инструменты недоступны — сформулируй финальный ответ обычным "
+    "текстом на основе уже полученных данных, без синтаксиса вызовов)"
+)
+
+
+async def _sanitize_markup(stats, llm, messages, thinking) -> None:
+    """Якщо фінальний текст містить сиру розмітку tool-викликів — один
+    корекційний ретрай без тулів, а за потреби вирізання блоків регексом."""
+    if _MARKUP_MARKER not in stats.text:
+        return
+    log.warning("Санітайзер: у фінальному тексті сира розмітка tool-викликів, корекційний ретрай")
+    messages.append({"role": "assistant", "content": stats.text})
+    messages.append({"role": "user", "content": _MARKUP_RETRY_NOTE})
+    retry = await llm.chat(messages, tools=None, thinking=thinking)
+    stats.llm_calls += 1
+    stats.prompt_tokens += retry.prompt_tokens
+    stats.completion_tokens += retry.completion_tokens
+    stats.tool_calls.append("🧯 маркап-ретрай")
+
+    text = (retry.message.content or "").strip()
+    if _MARKUP_MARKER in text:
+        text = _MARKUP_RE.sub("", text).strip()
+        if len(text) < _MARKUP_MIN_REMAINDER:
+            text = _MARKUP_FALLBACK
+    stats.text = text or _MARKUP_FALLBACK
+
+
 async def run_agent(
     llm,
     messages: list[dict],
     tctx: ToolContext,
     max_iterations: int,
     schemas: list[dict] | None = None,
+    thinking: bool | None = None,
 ) -> AgentResult:
     """Агентний цикл: модель ↔ інструменти, доки не буде текстової відповіді.
     schemas — набір схем для цього запиту (типово базові TOOL_SCHEMAS; режими
     можуть передавати розширений). На останній дозволеній ітерації інструменти
     не передаються — модель змушена відповісти текстом.
+    thinking прокидається в кожен llm.chat (пер-режимний контроль мислення).
     Повертає AgentResult з текстом і статистикою (тули, токени, виклики)."""
     schemas = schemas or TOOL_SCHEMAS
     stats = AgentResult()
     for iteration in range(max_iterations):
         is_last = iteration == max_iterations - 1
-        chat_result = await llm.chat(messages, tools=None if is_last else schemas)
+        chat_result = await llm.chat(
+            messages, tools=None if is_last else schemas, thinking=thinking
+        )
         message = chat_result.message
         stats.llm_calls += 1
         stats.prompt_tokens += chat_result.prompt_tokens
@@ -484,6 +528,7 @@ async def run_agent(
         tool_calls = getattr(message, "tool_calls", None) or []
         if not tool_calls:
             stats.text = (message.content or "").strip() or "🤔 (модель повернула порожню відповідь)"
+            await _sanitize_markup(stats, llm, messages, thinking)
             return stats
 
         messages.append(

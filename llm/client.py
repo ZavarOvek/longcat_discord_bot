@@ -50,9 +50,20 @@ class LongcatClient:
         )
         self._semaphore = asyncio.Semaphore(cfg.llm_concurrency)
 
-    async def chat(self, messages: list[dict], tools: list[dict] | None = None) -> ChatResult:
+    async def chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        thinking: bool | None = None,
+    ) -> ChatResult:
         """Один виклик chat.completions. Повертає ChatResult:
-        message (content / tool_calls) + токени prompt/completion."""
+        message (content / tool_calls) + токени prompt/completion.
+
+        thinking перекриває cfg.thinking для цього виклику (пер-режимний
+        контроль): режим ZZZ вимикає мислення, бо thinking×function-calling у
+        LongCat дає текстові <longcat_tool_call> у content замість структурних
+        tool_calls. None означає «взяти cfg.thinking»."""
+        effective_thinking = self.cfg.thinking if thinking is None else thinking
         kwargs: dict = {
             "model": self.cfg.longcat_model,
             "messages": messages,
@@ -62,9 +73,9 @@ class LongcatClient:
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
-        if self.cfg.thinking is not None:
+        if effective_thinking is not None:
             kwargs["extra_body"] = {
-                "thinking": {"type": "enabled" if self.cfg.thinking else "disabled"}
+                "thinking": {"type": "enabled" if effective_thinking else "disabled"}
             }
 
         delay = 2.0

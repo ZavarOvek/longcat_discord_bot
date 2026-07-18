@@ -206,7 +206,7 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
         AgentResult(text="Привет, это ответ по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1),
     ]
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return scripted.pop(0)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -227,7 +227,7 @@ async def test_lang_guard_keeps_russian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard="ru")))
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return AgentResult(text="Уже по-русски, всё хорошо", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -244,7 +244,7 @@ async def test_lang_guard_disabled(monkeypatch):
 
     calls = []
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         calls.append(iters)
         return AgentResult(text="Її їжа їде їжею, ґрунт і їжак — українською їй їм", llm_calls=1)
 
@@ -268,7 +268,7 @@ async def test_lang_guard_failed_retry_keeps_original(monkeypatch):
         AgentResult(text="Її їжа їде їжею, ґрунт і їжак — знову українською їй їм", llm_calls=1),
     ]
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return scripted.pop(0)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -302,7 +302,7 @@ async def test_run_no_guard_stores_and_returns(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard="")))
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return AgentResult(text="Обычный ответ", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -321,7 +321,7 @@ async def test_run_applies_fix_tables_before_guard(monkeypatch):
 
     raw = "| A | B |\n| --- | --- |\n| 1 | 2 |"
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return AgentResult(text=raw, llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -342,7 +342,7 @@ async def test_run_retry_called_at_most_once(monkeypatch):
     # обидва прогони українською: якби ретраїв було >1, страж зациклився б
     scripted = [AgentResult(text=ua, llm_calls=1), AgentResult(text=ua, llm_calls=1)]
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         calls.append(iters)
         return scripted.pop(0)
 
@@ -361,7 +361,7 @@ async def test_run_autocontext_labels_prefixed(monkeypatch):
     bot.zzz_db = FakeZZZ(block="[дані про Miyabi]", labels=["Miyabi", "Yanagi"])
     cog = ChatCog(bot)
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return AgentResult(text="Ответ по ZZZ", tool_calls=["🔧 zzz_search"], llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -387,7 +387,7 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
         AgentResult(text="Ответ по-русски", llm_calls=1),
     ]
 
-    async def fake_run_agent(llm, messages, tctx, iters, *, schemas):
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
         return scripted.pop(0)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
@@ -396,3 +396,74 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
     assert result.text == "Ответ по-русски"
     # мітка авто-контексту попереду, стражева мітка — після неї
     assert result.tool_calls == ["📦 Miyabi", "🌐 мовний ретрай"]
+
+
+# ---------------- пер-режимне вимкнення thinking (шар 1 фіксу thinking×tools) ----------------
+# Корінь інциденту 18.07: у zzz-каналах мислення примусово вимкнене (thinking=False),
+# бо thinking×function-calling у LongCat дає текстові <longcat_tool_call> у content.
+
+
+@pytest.mark.asyncio
+async def test_run_thinking_disabled_in_zzz(monkeypatch):
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
+    bot = _bot(db, _config(lang_guard=""))
+    bot.zzz_db = FakeZZZ(block="", labels=[])
+    cog = ChatCog(bot)
+
+    seen = []
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        seen.append(thinking)
+        return AgentResult(text="Ответ по ZZZ", llm_calls=1)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    result, zzz_mode = await cog._run(_message(cog.bot))
+    assert zzz_mode is True
+    # у zzz-режимі мислення примусово вимкнене
+    assert seen == [False]
+
+
+@pytest.mark.asyncio
+async def test_run_thinking_none_in_normal(monkeypatch):
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
+    cog = ChatCog(_bot(db, _config(lang_guard="")))
+
+    seen = []
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        seen.append(thinking)
+        return AgentResult(text="Обычный ответ", llm_calls=1)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    await cog._run(_message(cog.bot))
+    # звичайний режим нічого не нав'язує — рішення за cfg.thinking усередині клієнта
+    assert seen == [None]
+
+
+@pytest.mark.asyncio
+async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
+    # ретрай мовного стража в zzz успадковує thinking=False основного прогону
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
+    bot = _bot(db, _config(lang_guard="ru"))
+    bot.zzz_db = FakeZZZ(block="", labels=[])
+    cog = ChatCog(bot)
+
+    ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм"
+    scripted = [
+        AgentResult(text=ua, llm_calls=1),
+        AgentResult(text="Ответ по-русски", llm_calls=1),
+    ]
+    seen = []
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        seen.append(thinking)
+        return scripted.pop(0)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    result, _ = await cog._run(_message(cog.bot))
+    assert result.text == "Ответ по-русски"
+    # обидва виклики (основний + ретрай стража) з thinking=False
+    assert seen == [False, False]

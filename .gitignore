@@ -18,3 +18,9 @@ data/zzz/discs.json
 data/zzz/bangboo.json
 data/zzz/meta.json
 zzz/data/
+
+# Кеш hakushin-py (завантажені дані API) — runtime, не версіонується.
+zzz/.cache/
+
+# Внутрішні нотатки для асистента — не для репо.
+CLAUDE.md
