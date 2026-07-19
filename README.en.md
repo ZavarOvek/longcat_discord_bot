@@ -11,6 +11,11 @@ A personal Discord bot in Python: an LLM chat built on **Meituan LongCat-2.0**
 set of server features (moderation, reminders, polls, levels). Runs locally,
 stores everything in SQLite right next to itself.
 
+| Regular chat | ZZZ advisor |
+| --- | --- |
+| ![Chat reply with tool calls](docs/screenshot-chat.png) | ![ZZZ advisor](docs/screenshot-zzz.png) |
+| Agentic tool loop: one request pulls the time, server info and a dice roll — the footer shows every call and the tokens spent. | Advice is built from the local ZZZ database (entity lookup shown in the footer), not the model's memory — so no hallucinations. |
+
 ## Features
 
 **LLM chat with LongCat.** The bot replies to mentions, replies to its own
