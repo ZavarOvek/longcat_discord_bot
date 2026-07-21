@@ -1,218 +1,225 @@
+**English** | [Українська](README.uk.md)
+
 # 🐈‍⬛ LongCat Discord Bot
 
-**[Українська](README.md) | [English](README.en.md)**
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](CHANGELOG.md)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml/badge.svg)](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml)
+A personal Discord bot in Python: an LLM chat built on **Meituan
+LongCat-2.0** (OpenAI-compatible API) with tools and conversation memory,
+plus a classic set of server features (moderation, reminders, polls,
+levels). Runs locally, keeps everything in a SQLite file next to itself.
 
-Персональний Discord-бот на Python: LLM-чат на базі **Meituan LongCat-2.0**
-(OpenAI-сумісний API) з інструментами й пам'яттю розмов + класичний набір
-серверних фіч (модерація, нагадування, опитування, рівні). Запускається
-локально, все зберігає в SQLite поруч із собою.
+## Features
 
-| Звичайний чат | ZZZ-радник |
-| --- | --- |
-| ![Чат-відповідь з викликом інструментів](docs/screenshot-chat.png) | ![ZZZ-радник](docs/screenshot-zzz.png) |
-| Агентний tool-цикл: один запит чіпляє час, інфо про сервер і кубик — у футері видно всі виклики й витрачені токени. | Порада будується з локальної ZZZ-бази (пошук по агенту у футері), а не з пам'яті моделі — тому без галюцинацій. |
+**LLM chat with LongCat.** The bot replies to a mention, a reply to its own
+message, or any message in DMs. Conversation memory is kept separately per
+channel and thread and survives restarts. Tools available to the model: the
+current time, server/user info, a channel's recent messages, creating
+reminders and polls, dice rolls, and (optionally) wiki and web search for
+fact-checking.
 
-## Можливості
+**Reply presentation.** Every element is toggled independently in `.env`:
+embeds colored by the channel's mode, a footer with stats (which tools were
+called and how many tokens were spent), a 🔁 "Reroll" button (usable only by
+the message's author) and a 🧹 "Forget conversation" button.
 
-**LLM-чат з LongCat.** Бот відповідає на згадку, реплай на своє повідомлення
-або будь-яке повідомлення в DM. Пам'ять розмови зберігається окремо для
-кожного каналу й гілки та переживає рестарт. Моделі доступні інструменти:
-поточний час, інфо про сервер і користувача, останні повідомлення каналу,
-створення нагадувань і опитувань, кубики, а також (опційно) вікі та
-веб-пошук для перевірки фактів.
+**Language guard** (`LANG_GUARD`) — a deterministic retry for the rare case
+where the model answers in the wrong language despite its configured
+persona.
 
-**Оформлення відповідей.** Кожен елемент вимикається окремо в `.env`:
-ембеди з кольором залежно від режиму каналу, футер зі статистикою (які
-інструменти викликались і скільки витрачено токенів), кнопки 🔁
-«Переролити» (доступна лише автору запиту) і 🧹 «Забути розмову».
+**ZZZ advisor mode** (Zenless Zone Zero, `/mode`) — a local database of
+agents, W-Engines, discs and bangboo with auto-injected context for
+entities mentioned in a message (Cyrillic transliteration, Ukrainian case
+inflection handled), a bangboo matcher for a given team composition, and
+warnings about CN/West version discrepancies and stale data. `/zzz_reload`
+reloads the database without restarting the bot.
 
-**Мовний вартовий** (`LANG_GUARD`) — детермінований ретрай на випадок, якщо
-відповідь зісковзнула в іншу мову, ніж задано персоні: перевірка за
-морфологічними ознаками, без звернення до зовнішніх сервісів.
+Plus a classic set of server commands: moderation (`/purge` `/timeout`
+`/kick` `/ban` `/warn` and others), persistent reminders (`/remind`
+`/reminders`), native Discord polls (`/poll`), welcome messages for new
+members, and MEE6-style XP levels (`/rank` `/leaderboard`) — the last two
+are optional.
 
-**Режим ZZZ-радника** (Zenless Zone Zero, `/mode`) — локальна база агентів,
-W-Engine, дисків і банбу з авто-підкладкою даних по сутностях, згаданих у
-повідомленні (транслітерація кирилиці, відмінювання), матчером банбу під
-склад команди та попередженнями про розбіжності CN/West і застарілі дані.
-`/zzz_reload` перечитує базу без рестарту бота.
-
-Плюс класичний набір серверних команд: модерація (`/purge` `/timeout`
-`/kick` `/ban` `/warn` та інші), персистентні нагадування (`/remind`
-`/reminders`), нативні опитування Discord (`/poll`), привітання новачків і
-XP-рівні на кшталт MEE6 (`/rank` `/leaderboard`) — останні два опційні.
-
-## Вимоги
+## Requirements
 
 - **Python 3.11+**
-- Ключ [LongCat API Platform](https://longcat.chat/platform)
+- A [LongCat API Platform](https://longcat.chat/platform) key
 
-## Установка
+## Installation
 
-### 1. Створення Discord-застосунку
+### 1. Create a Discord application
 
-1. Відкрити <https://discord.com/developers/applications> → **New Application**.
-2. Вкладка **Bot** → **Reset Token** → скопіювати токен (це `DISCORD_TOKEN`).
-3. Там само нижче, у **Privileged Gateway Intents**, увімкнути обидва пункти
-   і натиснути Save:
-   - **MESSAGE CONTENT INTENT** — без нього бот не бачить текст повідомлень.
-   - **SERVER MEMBERS INTENT** — потрібен для привітань новачків і пошуку
-     учасників.
+1. Open <https://discord.com/developers/applications> → **New
+   Application**.
+2. **Bot** tab → **Reset Token** → copy the token (this is your
+   `DISCORD_TOKEN`).
+3. Further down on the same tab, under **Privileged Gateway Intents**,
+   enable both and click Save:
+   - **MESSAGE CONTENT INTENT** — without it the bot can't see message
+     text.
+   - **SERVER MEMBERS INTENT** — needed for welcome messages and member
+     lookups.
 
-### 2. Запрошення бота на сервер
+### 2. Invite the bot to a server
 
-Вкладка **OAuth2 → URL Generator**:
+**OAuth2 → URL Generator** tab:
 
 - Scopes: `bot` + `applications.commands`.
-- Bot Permissions: для власного сервера найпростіше вибрати
-  **Administrator**; мінімальний набір — View Channels, Send Messages, Send
-  Messages in Threads, Embed Links, Attach Files, Add Reactions, Read
-  Message History, Manage Messages, Moderate Members, Kick Members, Ban
-  Members, Manage Channels, Create Polls.
-- Відкрити згенероване посилання і додати бота на сервер.
+- Bot Permissions: for your own server, **Administrator** is simplest;
+  the minimal set is View Channels, Send Messages, Send Messages in
+  Threads, Embed Links, Attach Files, Add Reactions, Read Message History,
+  Manage Messages, Moderate Members, Kick Members, Ban Members, Manage
+  Channels, Create Polls.
+- Open the generated link and add the bot to your server.
 
-### 3. Налаштування і запуск
+### 3. Configure and run
 
-```bat
+```
 :: Windows
 py -3 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-:: заповнити DISCORD_TOKEN і LONGCAT_API_KEY у .env
+:: fill in DISCORD_TOKEN and LONGCAT_API_KEY in .env
 py bot.py
 ```
 
-Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`, далі так
-само. У PyCharm: Settings → Project → Python Interpreter → обрати `.venv`.
+Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`, then the
+same steps. In PyCharm: Settings → Project → Python Interpreter → select
+`.venv`.
 
-**Важливо:** ID сервера варто вписати в `GUILD_IDS` — тоді slash-команди
-з'являються миттєво, без цього глобальна синхронізація триває до години.
-Дізнатися ID: увімкнути Developer Mode (User Settings → Advanced), клацнути
-правою кнопкою на назві сервера → Copy Server ID. Для кількох серверів ID
-достатньо перелічити через кому.
+**Important:** set your server ID in `GUILD_IDS` — slash commands then
+appear instantly; without it, global sync takes up to an hour. To find the
+ID: enable Developer Mode (User Settings → Advanced), right-click the
+server name → Copy Server ID. For multiple servers, list the IDs
+comma-separated.
 
-## Як працює чат
+## How the chat works
 
-- **Тригери:** @згадка бота, реплай на його повідомлення, будь-яке повідомлення в DM.
-  `/reset` очищає пам'ять каналу, `/context` показує її обсяг.
-- **Пам'ять:** SQLite, окремо на кожен канал і кожну гілку. У запит до моделі йдуть
-  останні повідомлення в межах `CHAT_HISTORY_TOKEN_LIMIT` токенів, найстаріші відкидаються.
-  Вікно LongCat — 1M токенів, але історія пересилається заново з кожним запитом,
-  тож саме цей ліміт — головний регулятор витрат денної квоти.
-- **Інструменти:** tool-цикл обмежений `CHAT_MAX_TOOL_ITERATIONS`; на останній ітерації
-  інструменти не передаються, і модель мусить відповісти текстом. Помилки інструментів
-  повертаються моделі текстом — вона може виправитись сама. Вікі й веб-пошук
-  вмикаються `WEB_TOOLS_ENABLED`.
-- **Оформлення:** `EMBED_REPLIES` — відповіді в ембедах (колір за режимом каналу),
-  `FOOTER_STATS` — футер із викликаними тулами й витраченими токенами,
-  `REPLY_BUTTONS` — кнопки 🔁 (переролити, лише автор) і 🧹 (забути розмову).
-- **Мовний вартовий:** `LANG_GUARD` — якщо відповідь зісковзнула в іншу мову,
-  ніж задано персоні, бот робить один коригувальний ретрай (детермінована
-  евристика за літерами, службові тексти в ретрай не потрапляють). Наразі
-  підтримується напрямок `ru` (детектор українського тексту).
-- **Режим ZZZ:** `/mode` перемикає канал у ZZZ-радника. У цьому режимі до промпта
-  підключаються ZZZ-інструменти й детермінована авто-підкладка даних по сутностях
-  з повідомлення (мітки 📦 у футері). База — локальні JSON у `data/zzz/`
-  (генерується окремо через `zzz/build_db.py`, у ран-таймі лише читається).
-- **Безпека:** модераційних інструментів у LLM немає навмисно. Банити, кікати й чистити
-  канал можна лише slash-командами з перевіркою прав Discord.
-- **Квота:** використання токенів кожного запиту пишеться в лог
-  (`LLM usage: prompt=…, completion=…`) — зручно стежити за витратами і брати
-  дані для фідбек-форми LongCat.
-- Один канал обробляє один запит за раз (запити стають у чергу, бот ставить ⏳);
-  глобальну кількість одночасних запитів до API обмежує `LLM_MAX_CONCURRENCY`.
+- **Triggers:** @mentioning the bot, replying to its message, or any
+  message in DMs. `/reset` clears a channel's memory, `/context` shows how
+  much of it is in use.
+- **Memory:** SQLite, kept separately per channel and per thread. Each
+  request to the model includes the most recent messages within
+  `CHAT_HISTORY_TOKEN_LIMIT` tokens, with the oldest dropped first.
+  LongCat's context window is 1M tokens, but history is resent in full with
+  every request, so this limit is the main lever for controlling daily
+  quota usage.
+- **Tools:** the tool-calling loop is capped by `CHAT_MAX_TOOL_ITERATIONS`;
+  on the final iteration no tools are offered, forcing the model to answer
+  in text. Tool errors are returned to the model as text, so it can
+  self-correct. Wiki and web search are toggled by `WEB_TOOLS_ENABLED`.
+- **Presentation:** `EMBED_REPLIES` — replies as embeds (color set by
+  channel mode), `FOOTER_STATS` — a footer with tools called and tokens
+  spent, `REPLY_BUTTONS` — 🔁 (reroll, author-only) and 🧹 (forget
+  conversation) buttons.
+- **Language guard:** `LANG_GUARD=ru` — if a reply comes back entirely in
+  Ukrainian, the bot does one corrective retry in Russian (a deterministic
+  heuristic based on the letters і/ї/є/ґ; system/utility text is excluded
+  from the retry).
+- **ZZZ mode:** `/mode` switches a channel into the ZZZ advisor. In this
+  mode, ZZZ-specific tools and deterministic auto-injected context for
+  entities mentioned in the message (📦 markers in the footer) are added to
+  the prompt. The database is local JSON under `data/zzz/` (generated
+  separately via `zzz/build_db.py`; only read at runtime).
+- **Safety:** the LLM deliberately has no moderation tools. Banning,
+  kicking and purging a channel are only available via slash commands,
+  which check Discord permissions.
+- **Quota:** token usage for every request is written to the log
+  (`LLM usage: prompt=…, completion=…`) — handy for tracking spend and for
+  data to include in LongCat's feedback form.
+- Each channel processes one request at a time (further requests queue, the
+  bot shows ⏳); `LLM_MAX_CONCURRENCY` caps the global number of concurrent
+  API requests.
 
-## Налаштування (.env)
+## Configuration (.env)
 
-| Змінна | Типово | Що робить |
+| Variable | Default | What it does |
 | --- | --- | --- |
-| `DISCORD_TOKEN` | — | токен бота (обов'язково) |
-| `LONGCAT_API_KEY` | — | ключ LongCat (обов'язково) |
-| `LONGCAT_BASE_URL` | `https://api.longcat.chat/openai/v1` | OpenAI-сумісний ендпоінт |
-| `LONGCAT_MODEL` | `LongCat-2.0` | ідентифікатор моделі |
-| `LONGCAT_MAX_TOKENS` | `2048` | стеля токенів однієї відповіді |
+| `DISCORD_TOKEN` | — | bot token (required) |
+| `LONGCAT_API_KEY` | — | LongCat API key (required) |
+| `LONGCAT_BASE_URL` | `https://api.longcat.chat/openai/v1` | OpenAI-compatible endpoint |
+| `LONGCAT_MODEL` | `LongCat-2.0` | model identifier |
+| `LONGCAT_MAX_TOKENS` | `2048` | max tokens per reply |
 | `LONGCAT_TEMPERATURE` | `0.7` | 0–1 |
-| `LONGCAT_THINKING` | `false` | `true`/`false`/порожньо (не надсилати параметр) |
-| `CHAT_HISTORY_TOKEN_LIMIT` | `24000` | скільки історії їде в кожен запит |
-| `CHAT_MAX_TOOL_ITERATIONS` | `6` | ліміт кроків tool-циклу |
-| `LLM_MAX_CONCURRENCY` | `2` | одночасні запити до LongCat |
-| `CHAT_SYSTEM_PROMPT` | вбудований | свій системний промпт |
-| `WEB_TOOLS_ENABLED` | `true` | вікі + веб-пошук як інструменти LLM |
-| `EMBED_REPLIES` | `true` | відповіді в ембедах |
-| `FOOTER_STATS` | `true` | футер зі статистикою тулів/токенів |
-| `REPLY_BUTTONS` | `true` | кнопки 🔁/🧹 під відповіддю |
-| `LANG_GUARD` | — | напрямок ретраю мовного вартового; наразі підтримується лише `ru`, порожньо = вимкнено |
-| `GUILD_IDS` | — | ID серверів для миттєвого sync команд |
-| `WELCOME_CHANNEL_ID` | — | канал привітань (порожньо = вимкнено) |
-| `LEVELS_ENABLED` | `true` | XP-система |
-| `DATABASE_PATH` / `LOG_LEVEL` / `LOG_FILE` | `bot.db` / `INFO` / `bot.log` | очевидне |
+| `LONGCAT_THINKING` | `false` | `true`/`false`/empty (don't send the parameter) |
+| `CHAT_HISTORY_TOKEN_LIMIT` | `24000` | how much history is sent with each request |
+| `CHAT_MAX_TOOL_ITERATIONS` | `6` | cap on tool-loop steps |
+| `LLM_MAX_CONCURRENCY` | `2` | concurrent requests to LongCat |
+| `CHAT_SYSTEM_PROMPT` | built-in | your own system prompt |
+| `WEB_TOOLS_ENABLED` | `true` | wiki + web search as LLM tools |
+| `EMBED_REPLIES` | `true` | replies as embeds |
+| `FOOTER_STATS` | `true` | footer with tools/token stats |
+| `REPLY_BUTTONS` | `true` | 🔁/🧹 buttons under a reply |
+| `LANG_GUARD` | — | `ru` = retry fully-Ukrainian replies; empty = disabled |
+| `GUILD_IDS` | — | server IDs for instant command sync |
+| `WELCOME_CHANNEL_ID` | — | welcome-message channel (empty = disabled) |
+| `LEVELS_ENABLED` | `true` | XP system |
+| `DATABASE_PATH` / `LOG_LEVEL` / `LOG_FILE` | `bot.db` / `INFO` / `bot.log` | self-explanatory |
 
-## Структура
+## Structure
 
 ```
 longcat-discord-bot/
-├── bot.py              # точка входу: інтенти, cogs, sync, обробка помилок
-├── config.py           # завантаження .env
-├── database.py         # aiosqlite: історія, нагадування, warn, XP, режими каналів
-├── utils.py            # сплітер 2000 символів, fix_tables, парсинг часу, кубики
+├── bot.py              # entry point: intents, cogs, sync, error handling
+├── config.py           # .env loading
+├── database.py         # aiosqlite: history, reminders, warns, XP, channel modes
+├── utils.py            # 2000-char splitter, fix_tables, time parsing, dice
 ├── llm/
-│   ├── client.py       # async LongCat-клієнт: семафор, ретраї з бекофом
-│   ├── memory.py       # системний промпт + тримінг історії за токенами
-│   └── tools.py        # схеми/реєстр інструментів (з веб-тулами), агентний цикл
+│   ├── client.py       # async LongCat client: semaphore, backoff retries
+│   ├── memory.py       # system prompt + token-based history trimming
+│   └── tools.py        # tool schemas/registry (incl. web tools), agentic loop
 ├── zzz/
-│   ├── db.py           # інтерфейс до ZZZ-баз для LLM (search/describe/auto_context/bangboo)
-│   ├── tools.py        # ZZZ-режим: промпт і схеми інструментів
-│   └── build_db.py     # офлайн-генератор JSON-баз із hakushin (у ран-таймі не потрібен)
+│   ├── db.py           # ZZZ database interface for the LLM (search/describe/auto_context/bangboo)
+│   ├── tools.py        # ZZZ mode: prompt and tool schemas
+│   └── build_db.py     # offline JSON database generator from hakushin (not needed at runtime)
 ├── cogs/
-│   ├── chat.py         # LLM-чат (згадка/реплай/DM), ембеди/кнопки, мовний вартовий, /reset, /context
-│   ├── zzz.py          # /mode, /zzz_reload
+│   ├── chat.py          # LLM chat (mention/reply/DM), embeds/buttons, language guard, /reset, /context
+│   ├── zzz.py            # /mode, /zzz_reload
 │   ├── utility.py  moderation.py  fun.py
 │   ├── polls.py  reminders.py  welcome.py  levels.py
-└── tests/              # pytest: utils, database, memory, tools, zzz.db, zzz.build_db, chat, levels
+└── tests/               # pytest: utils, database, memory, tools, zzz.db, zzz.build_db, chat, levels
 ```
 
-## Тести
+## Testing
 
-```bat
-:: у активованому .venv
+```
+:: inside the activated .venv
 pip install pytest pytest-asyncio
 pytest -q
 ```
 
-Покривають чисту логіку без мережі (мережеві виклики мокнуті): `utils`, `database`,
-`llm.memory`, `llm.tools`, `zzz.db`, `zzz.build_db`, `cogs.chat`, `cogs.levels`.
-Ключ і реальні дані для тестів не потрібні.
+Covers pure logic with no network calls (network calls are mocked):
+`utils`, `database`, `llm.memory`, `llm.tools`, `zzz.db`, `zzz.build_db`,
+`cogs.chat`, `cogs.levels`. No API key or real data needed.
 
-## Траблшутінг
+## Troubleshooting
 
-| Симптом | Причина / рішення |
+| Symptom | Cause / fix |
 | --- | --- |
-| `PrivilegedIntentsRequired` при старті | Увімкнути MESSAGE CONTENT + SERVER MEMBERS у Dev Portal → Bot |
-| Slash-команди не з'являються | Вписати `GUILD_IDS` і перезапустити бота; перезавантажити клієнт Discord (Ctrl+R). Глобальний sync — до 1 години |
-| Бот не реагує на реплаї без пінга | Не ввімкнений MESSAGE CONTENT INTENT |
-| Кракозябри в консолі Windows | Лише відображення: повний лог у `bot.log` (UTF-8). За бажання `set PYTHONIOENCODING=utf-8` |
-| `LongCat API 401` | Невірний `LONGCAT_API_KEY` |
-| Часті 429 | Квота/ліміт запитів: ретраї з бекофом уже вбудовані; зменшити `LLM_MAX_CONCURRENCY`, перевірити квоту на платформі |
-| `LongCat API 400` зі згадкою `tools` | Ендпоінт відмовив у function calling — тимчасово можна прибрати інструменти (передавати `tools=None` у `run_agent`) або перевести клієнт на Anthropic-сумісний ендпоінт `/anthropic/v1` |
-| Timeout/kick/ban «роль нижча» | Підняти роль бота вище цілі: Server Settings → Roles |
-| Опитування відхилено | Ліміти Discord: питання ≤300 символів, 2–10 варіантів ≤55 символів, тривалість ≤768 год |
+| `PrivilegedIntentsRequired` on startup | Enable MESSAGE CONTENT + SERVER MEMBERS in the Dev Portal → Bot tab |
+| Slash commands don't show up | Set `GUILD_IDS` and restart the bot; reload the Discord client (Ctrl+R). Global sync takes up to 1 hour |
+| Bot doesn't respond to replies without a ping | MESSAGE CONTENT INTENT isn't enabled |
+| Garbled text in the Windows console | Display-only issue: the full log in `bot.log` is UTF-8. If needed, `set PYTHONIOENCODING=utf-8` |
+| `LongCat API 401` | Wrong `LONGCAT_API_KEY` |
+| Frequent 429s | Quota/rate limit: backoff retries are already built in; lower `LLM_MAX_CONCURRENCY`, check your quota on the platform |
+| `LongCat API 400` mentioning `tools` | The endpoint rejected function calling — temporarily drop tools (pass `tools=None` in `run_agent`) or switch the client to the Anthropic-compatible endpoint `/anthropic/v1` |
+| Timeout/kick/ban "role too low" | Move the bot's role above the target's: Server Settings → Roles |
+| Poll rejected | Discord limits: question ≤300 chars, 2–10 options ≤55 chars each, duration ≤768 hours |
 
 ## Changelog
 
-Історія значних змін — у [`CHANGELOG.md`](CHANGELOG.md).
+Notable changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
 
-## Ідеї на потім
+## Ideas for later
 
-- Reaction roles і авто-роль новачкам
-- `/persona` — перемикання системних промптів на льоту
-- Експорт діалогу канала в файл — готовий матеріал для фідбек-форми LongCat
-- Daily-лічильник витрачених токенів у БД + команда `/quota`
-- Щоденний бекап `bot.db` + curated-даних ZZZ
+- Reaction roles and auto-role for new members
+- `/persona` — switch system prompts on the fly
+- Export a channel's conversation to a file — ready-made material for
+  LongCat's feedback form
+- Daily token-spend counter in the DB + a `/quota` command
+- Daily backup of `bot.db` + curated ZZZ data
 
-## Ліцензія
+## License
 
 [MIT](LICENSE)
