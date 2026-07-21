@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 
 import discord
@@ -30,6 +31,10 @@ PLAIN_LIMIT = 1900
 FOOTER_FIT_LIMIT = 1990  # футер тулиться в останній чанк, лише якщо влазить у ліміт Discord
 VIEW_TIMEOUT = 300  # секунд до самознищення кнопок
 
+# Кожні N дотиків чистимо протухлі пер-юзерні кулдауни, щоб словник не ріс
+# безмежно (той самий підхід, що й у cogs.levels).
+USER_COOLDOWN_SWEEP_EVERY = 500
+
 # У ZZZ-режимі мислення примусово вимкнене: thinking×function-calling у LongCat-2.0
 # дає текстові <longcat_tool_call> у content замість структурних tool_calls
 # (інцидент 18.07). None у звичайних каналах = лишити рішення за cfg.thinking.
@@ -49,6 +54,29 @@ def build_footer(result: AgentResult) -> str:
     if result.llm_calls > 1:
         parts.append(f"⛓ {result.llm_calls} виклики LLM")
     return " │ ".join(parts)
+
+
+_MODE_LABELS = {"normal": "звичайний", "zzz": "ZZZ-радник"}
+
+
+def _quota_line(label: str, summary: dict) -> str:
+    """Один рядок підсумку витрат: відповіді, токени, найчастіший режим."""
+    mode = summary.get("top_mode")
+    mode_part = f" · частіше {_MODE_LABELS.get(mode, mode)}" if mode else ""
+    return (
+        f"**{label}:** {summary['replies']} відповідей · "
+        f"🎫 {summary['prompt_tokens']} → {summary['completion_tokens']} "
+        f"(разом {summary['total_tokens']} токенів){mode_part}"
+    )
+
+
+def build_quota_text(today: dict, week: dict) -> str:
+    """Прозовий (не |-таблиця) підсумок витрат: сьогодні + 7 днів."""
+    return (
+        "📊 **Витрати токенів**\n"
+        f"{_quota_line('За добу', today)}\n"
+        f"{_quota_line('За 7 днів', week)}"
+    )
 
 
 def build_embeds(chunks: list[str], *, zzz: bool, footer: str | None) -> list[discord.Embed]:
@@ -116,6 +144,30 @@ class ChatCog(commands.Cog, name="Чат"):
     def __init__(self, bot):
         self.bot = bot
         self._locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # Пер-юзерний антифлуд: час останнього дозволеного запиту (monotonic).
+        self._user_cooldowns: dict[int, float] = {}
+        self._cooldown_touches = 0
+
+    def _sweep_user_cooldowns(self, now: float, window: float) -> None:
+        """Викинути кулдауни, що вже сплили (їх однаково перевіряли б заново)."""
+        stale = [uid for uid, ts in self._user_cooldowns.items() if now - ts >= window]
+        for uid in stale:
+            del self._user_cooldowns[uid]
+
+    def _check_user_cooldown(self, user_id: int, now: float) -> bool:
+        """True — запит дозволено (і відмічено); False — юзер ще на кулдауні.
+        Кулдаун 0 у конфізі повністю вимикає антифлуд."""
+        window = self.bot.config.user_cooldown_seconds
+        if window <= 0:
+            return True
+        if now - self._user_cooldowns.get(user_id, 0.0) < window:
+            return False
+        self._user_cooldowns[user_id] = now
+        self._cooldown_touches += 1
+        if self._cooldown_touches >= USER_COOLDOWN_SWEEP_EVERY:
+            self._cooldown_touches = 0
+            self._sweep_user_cooldowns(now, window)
+        return True
 
     async def _clear_history(self, channel_id: int, guild_id: int | None) -> int:
         """Чистка пам'яті каналу + надгробок-позначка."""
@@ -170,6 +222,15 @@ class ChatCog(commands.Cog, name="Чат"):
                 "Я тут 🐾 Напиши питання після згадки або відповідай реплаєм на мої повідомлення.",
                 mention_author=False,
             )
+            return
+
+        # Антифлуд: якщо юзер шле запити частіше за USER_COOLDOWN_SECONDS —
+        # мовчазна реакція ⏳ і жодного виклику LLM (токени бережемо).
+        if not self._check_user_cooldown(message.author.id, time.monotonic()):
+            try:
+                await message.add_reaction("⏳")
+            except discord.HTTPException:
+                pass
             return
 
         lock = self._locks[message.channel.id]
@@ -228,6 +289,18 @@ class ChatCog(commands.Cog, name="Чат"):
 
         guild_id = message.guild.id if message.guild else None
         await db.add_chat_message(message.channel.id, guild_id, "assistant", result.text)
+
+        # Облік витрат: один запис на відповідь (сума токенів усіх LLM-викликів,
+        # включно з ретраєм вартового). Збій обліку не має валити відповідь.
+        try:
+            await db.log_usage(
+                message.channel.id, guild_id,
+                result.prompt_tokens, result.completion_tokens,
+                "zzz" if zzz_mode else "normal",
+            )
+        except Exception:  # noqa: BLE001 — облік необов'язковий, лог і далі
+            log.exception("Не вдалося записати usage_log")
+
         return result, zzz_mode
 
     async def _resolve_mode(
@@ -358,6 +431,12 @@ class ChatCog(commands.Cog, name="Чат"):
             f"💾 Повідомлень у пам'яті: {len(rows)} · ≈{tokens} токенів (у кожен запит іде до {limit}).",
             ephemeral=True,
         )
+
+    @app_commands.command(name="quota", description="Скільки токенів витрачено за добу і за тиждень")
+    async def quota(self, interaction: discord.Interaction):
+        today = await self.bot.db.usage_summary(days=1)
+        week = await self.bot.db.usage_summary(days=7)
+        await interaction.response.send_message(build_quota_text(today, week), ephemeral=True)
 
 
 async def setup(bot):

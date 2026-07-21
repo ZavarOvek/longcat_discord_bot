@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS channel_modes(
     channel_id INTEGER PRIMARY KEY,
     mode TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS usage_log(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id INTEGER NOT NULL,
+    guild_id INTEGER,
+    ts INTEGER NOT NULL,
+    prompt_tokens INTEGER NOT NULL,
+    completion_tokens INTEGER NOT NULL,
+    mode TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage_log(ts);
 """
 
 
@@ -212,6 +223,55 @@ class Database:
                 (channel_id, mode),
             )
         await self._db.commit()
+
+    # ---------------- Облік витрат токенів ----------------
+
+    async def log_usage(
+        self,
+        channel_id: int,
+        guild_id: int | None,
+        prompt_tokens: int,
+        completion_tokens: int,
+        mode: str,
+        now: int | None = None,
+    ) -> None:
+        """Один запис на відповідь користувачу (сума токенів усіх LLM-викликів)."""
+        ts = int(time.time()) if now is None else now
+        await self._db.execute(
+            "INSERT INTO usage_log(channel_id, guild_id, ts, prompt_tokens, completion_tokens, mode) "
+            "VALUES(?,?,?,?,?,?)",
+            (channel_id, guild_id, ts, prompt_tokens, completion_tokens, mode),
+        )
+        await self._db.commit()
+
+    async def usage_summary(self, days: int = 1, now: int | None = None) -> dict:
+        """Підсумок витрат за останні `days` діб: кількість відповідей, токени
+        prompt/completion/total і найчастіший режим (top_mode, None якщо порожньо)."""
+        now = int(time.time()) if now is None else now
+        since = now - days * 86400
+        cursor = await self._db.execute(
+            "SELECT COUNT(*) AS replies, "
+            "COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens, "
+            "COALESCE(SUM(completion_tokens), 0) AS completion_tokens "
+            "FROM usage_log WHERE ts > ?",
+            (since,),
+        )
+        row = await cursor.fetchone()
+        prompt_tokens = row["prompt_tokens"]
+        completion_tokens = row["completion_tokens"]
+        mode_cursor = await self._db.execute(
+            "SELECT mode, COUNT(*) AS n FROM usage_log WHERE ts > ? "
+            "GROUP BY mode ORDER BY n DESC LIMIT 1",
+            (since,),
+        )
+        mode_row = await mode_cursor.fetchone()
+        return {
+            "replies": row["replies"],
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            "top_mode": mode_row["mode"] if mode_row else None,
+        }
 
     async def delete_last_assistant(self, channel_id: int) -> bool:
         """Видаляє останню відповідь бота в каналі (для 🔁 переролу)."""

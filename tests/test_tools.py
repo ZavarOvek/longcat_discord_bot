@@ -215,6 +215,31 @@ async def test_web_search_failure_graceful(tctx, monkeypatch):
     assert "Пошук недоступний" in result
 
 
+async def test_web_search_timeout_graceful(tctx, monkeypatch):
+    # ddgs завис -> wait_for кидає TimeoutError -> ввічлива деградація, не виняток
+    async def hang_to_thread(fn):
+        raise TimeoutError
+
+    monkeypatch.setattr(tools_mod.asyncio, "to_thread", hang_to_thread)
+    result = await tools_mod.tool_web_search(tctx, "щось")
+    assert "Пошук недоступний" in result
+
+
+async def test_web_search_wraps_in_wait_for(tctx, monkeypatch):
+    # тул має обгортати роботу в asyncio.wait_for із заданим таймаутом
+    seen = {}
+
+    async def fake_wait_for(coro, timeout):
+        seen["timeout"] = timeout
+        coro.close()  # не виконуємо, лише фіксуємо факт обгортання
+        return []
+
+    monkeypatch.setattr(tools_mod.asyncio, "wait_for", fake_wait_for)
+    result = await tools_mod.tool_web_search(tctx, "щось")
+    assert seen["timeout"] == tools_mod.WEB_SEARCH_TIMEOUT
+    assert "Нічого не знайдено" in result
+
+
 # ---------------- run_agent: прокидання thinking ----------------
 
 async def test_run_agent_thinking_passed_through(tctx):

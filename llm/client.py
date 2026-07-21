@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import time
 from typing import Any, NamedTuple
 
 from openai import (
@@ -25,6 +26,14 @@ from openai import (
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 4
+
+# Circuit breaker: після BREAKER_THRESHOLD поспіль повних збоїв (усі спроби
+# вичерпано — мережа/квота лежать) розмикаємо коло на BREAKER_COOLDOWN секунд.
+# У розімкненому стані chat() падає миттєво, без спроб мережі; перший запит
+# після cooldown — пробний (half-open): успіх замикає коло, збій знову розмикає.
+# 4xx (невірний ключ/запит) НЕ рахуються — це не збій сервісу, а помилка виклику.
+BREAKER_THRESHOLD = 5
+BREAKER_COOLDOWN = 60.0
 
 
 class ChatResult(NamedTuple):
@@ -49,6 +58,27 @@ class LongcatClient:
             max_retries=0,  # ретраї робимо самі, з контролем бекофу
         )
         self._semaphore = asyncio.Semaphore(cfg.llm_concurrency)
+        # Стан circuit breaker: лічильник послідовних повних збоїв і час, до
+        # якого коло лишається розімкненим (0 = замкнене).
+        self._breaker_failures = 0
+        self._breaker_open_until = 0.0
+
+    def _breaker_ok(self) -> bool:
+        """True, якщо запит дозволено (коло замкнене або cooldown минув)."""
+        return time.monotonic() >= self._breaker_open_until
+
+    def _breaker_record_success(self) -> None:
+        self._breaker_failures = 0
+        self._breaker_open_until = 0.0
+
+    def _breaker_record_failure(self) -> None:
+        self._breaker_failures += 1
+        if self._breaker_failures >= BREAKER_THRESHOLD:
+            self._breaker_open_until = time.monotonic() + BREAKER_COOLDOWN
+            log.warning(
+                "Circuit breaker розімкнено: %d повних збоїв поспіль, пауза %.0f с",
+                self._breaker_failures, BREAKER_COOLDOWN,
+            )
 
     async def chat(
         self,
@@ -78,6 +108,13 @@ class LongcatClient:
                 "thinking": {"type": "enabled" if effective_thinking else "disabled"}
             }
 
+        # Circuit breaker: якщо коло розімкнене й cooldown ще не минув — падаємо
+        # миттєво, не смикаючи мережу (сервіс однаково лежить).
+        if not self._breaker_ok():
+            raise LLMError(
+                "LongCat тимчасово недоступний (забагато збоїв поспіль) — зачекай близько хвилини."
+            )
+
         delay = 2.0
         async with self._semaphore:
             for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -93,6 +130,7 @@ class LongcatClient:
                             completion_tokens,
                             getattr(usage, "total_tokens", prompt_tokens + completion_tokens),
                         )
+                    self._breaker_record_success()
                     return ChatResult(response.choices[0].message, prompt_tokens, completion_tokens)
                 except RateLimitError:
                     log.warning("LongCat 429 (rate limit), спроба %d/%d — чекаю %.0f с",
@@ -109,4 +147,5 @@ class LongcatClient:
                     await asyncio.sleep(delay + random.uniform(0, 1))
                     delay = min(delay * 2, 45)
 
+        self._breaker_record_failure()
         raise LLMError("LongCat недоступний після кількох спроб (rate limit або мережа). Спробуй пізніше.")

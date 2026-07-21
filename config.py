@@ -71,6 +71,8 @@ class Config:
     web_tools: bool
     # мовний вартовий: "ru" = ретраїти повністю українські відповіді, "" = вимкнено
     lang_guard: str
+    # антифлуд: мін. інтервал (с) між LLM-запитами одного юзера, 0 = вимкнено
+    user_cooldown_seconds: int
     # інше
     database_path: str
     log_level: str
@@ -102,6 +104,7 @@ def load_config() -> Config:
         reply_buttons=_bool(os.getenv("REPLY_BUTTONS"), True),
         web_tools=_bool(os.getenv("WEB_TOOLS_ENABLED"), True),
         lang_guard=os.getenv("LANG_GUARD", "").strip().lower(),
+        user_cooldown_seconds=max(0, _int(os.getenv("USER_COOLDOWN_SECONDS"), 5)),
         database_path=os.getenv("DATABASE_PATH", "bot.db").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip(),
         log_file=os.getenv("LOG_FILE", "bot.log").strip(),

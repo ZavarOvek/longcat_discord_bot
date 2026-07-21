@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 MAX_RESULT_CHARS = 4000
+# Стеля очікування на синхронний ddgs: якщо DuckDuckGo завис, тул деградує
+# ввічливим текстом замість того, щоб тримати весь запит у заручниках.
+WEB_SEARCH_TIMEOUT = 15.0
 _MENTION_RE = re.compile(r"^<@!?(\d+)>$")
 
 
@@ -228,7 +231,9 @@ async def tool_web_search(tctx: ToolContext, query: str, max_results: int = 5) -
             return list(engine.text(str(query), max_results=max_results))
 
     try:
-        results = await asyncio.to_thread(_run)  # ddgs синхронний — не блокуємо event loop
+        # ddgs синхронний — крутимо в потоці, але під стелею часу: зависання
+        # DuckDuckGo не має тримати весь запит (TimeoutError теж деградує текстом).
+        results = await asyncio.wait_for(asyncio.to_thread(_run), timeout=WEB_SEARCH_TIMEOUT)
     except Exception as exc:  # noqa: BLE001
         return (
             f"Пошук недоступний ({type(exc).__name__}) — спробуй wiki, "

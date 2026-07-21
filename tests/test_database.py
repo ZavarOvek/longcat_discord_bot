@@ -210,3 +210,70 @@ async def test_set_channel_mode_overwrites(db):
     await db.set_channel_mode(1, "zzz")
     await db.set_channel_mode(1, "other")
     assert await db.get_channel_mode(1) == "other"
+
+
+# ---------------- usage_log (облік витрат токенів) ----------------
+
+async def test_usage_summary_empty(db):
+    # порожній лог: усі суми нульові, кількість відповідей 0
+    summary = await db.usage_summary(days=1, now=1000)
+    assert summary["replies"] == 0
+    assert summary["prompt_tokens"] == 0
+    assert summary["completion_tokens"] == 0
+    assert summary["total_tokens"] == 0
+
+
+async def test_log_and_summarize_single(db):
+    await db.log_usage(channel_id=1, guild_id=10, prompt_tokens=100, completion_tokens=20, mode="normal", now=1000)
+    summary = await db.usage_summary(days=1, now=1000)
+    assert summary["replies"] == 1
+    assert summary["prompt_tokens"] == 100
+    assert summary["completion_tokens"] == 20
+    assert summary["total_tokens"] == 120
+
+
+async def test_usage_summary_sums_multiple(db):
+    await db.log_usage(1, 10, 100, 20, "normal", now=1000)
+    await db.log_usage(1, 10, 50, 10, "zzz", now=1001)
+    await db.log_usage(2, 10, 30, 5, "normal", now=1002)
+    summary = await db.usage_summary(days=1, now=1002)
+    assert summary["replies"] == 3
+    assert summary["prompt_tokens"] == 180
+    assert summary["completion_tokens"] == 35
+    assert summary["total_tokens"] == 215
+
+
+async def test_usage_summary_window_excludes_old(db):
+    # запис старший за вікно (days=1 = 86400 с) не потрапляє в підсумок
+    await db.log_usage(1, 10, 100, 20, "normal", now=1000)          # старий
+    await db.log_usage(1, 10, 7, 3, "normal", now=1000 + 86400)     # свіжий
+    summary = await db.usage_summary(days=1, now=1000 + 86400)
+    assert summary["replies"] == 1
+    assert summary["prompt_tokens"] == 7
+    assert summary["completion_tokens"] == 3
+
+
+async def test_usage_summary_seven_day_window_wider(db):
+    await db.log_usage(1, 10, 100, 20, "normal", now=1_000_000)
+    # 3 доби тому — поза добовим вікном, але всередині тижневого
+    await db.log_usage(1, 10, 40, 8, "normal", now=1_000_000 - 3 * 86400)
+    day = await db.usage_summary(days=1, now=1_000_000)
+    week = await db.usage_summary(days=7, now=1_000_000)
+    assert day["replies"] == 1 and day["prompt_tokens"] == 100
+    assert week["replies"] == 2 and week["prompt_tokens"] == 140
+
+
+async def test_usage_summary_top_mode(db):
+    await db.log_usage(1, 10, 10, 1, "zzz", now=1000)
+    await db.log_usage(1, 10, 10, 1, "zzz", now=1001)
+    await db.log_usage(1, 10, 10, 1, "normal", now=1002)
+    summary = await db.usage_summary(days=1, now=1002)
+    # найчастіший режим — zzz (2 з 3)
+    assert summary["top_mode"] == "zzz"
+
+
+async def test_log_usage_defaults_now_to_time(db):
+    # без явного now пише поточний час — запис одразу в добовому вікні
+    await db.log_usage(1, 10, 5, 5, "normal")
+    summary = await db.usage_summary(days=1)
+    assert summary["replies"] == 1

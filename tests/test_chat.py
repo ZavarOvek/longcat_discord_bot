@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 import cogs.chat as chat_mod
-from cogs.chat import ChatCog, build_embeds, build_footer
+from cogs.chat import ChatCog, build_embeds, build_footer, build_quota_text
 from llm.tools import AgentResult
 
 
@@ -44,6 +44,25 @@ def test_footer_truncates_tool_list():
     # показує перші 4 і лічильник решти
     assert "t0 · t1 · t2 · t3 +3" in footer
     assert "t4" not in footer
+
+
+# ---------------- build_quota_text ----------------
+
+def test_quota_text_empty():
+    empty = {"replies": 0, "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "top_mode": None}
+    text = build_quota_text(empty, empty)
+    # без запитів — зрозуміле повідомлення, без падіння на None-режимі
+    assert "0" in text
+    assert "|" not in text  # не |-таблиця (Discord її не рендерить)
+
+
+def test_quota_text_reports_numbers():
+    today = {"replies": 3, "prompt_tokens": 1200, "completion_tokens": 300, "total_tokens": 1500, "top_mode": "zzz"}
+    week = {"replies": 20, "prompt_tokens": 9000, "completion_tokens": 2000, "total_tokens": 11000, "top_mode": "normal"}
+    text = build_quota_text(today, week)
+    assert "3" in text and "1500" in text
+    assert "20" in text and "11000" in text
+    assert "|" not in text
 
 
 # ---------------- build_embeds ----------------
@@ -121,10 +140,12 @@ def test_payloads_plain_no_footer():
 class FakeDB:
     """Мінімальна БД для чат-кога: історія в пам'яті + режим каналу."""
 
-    def __init__(self, history=None, mode=None):
+    def __init__(self, history=None, mode=None, usage_raises=False):
         self.messages = list(history or [])
         self.mode = mode
         self.cleared = 0
+        self.usage_calls = []
+        self.usage_raises = usage_raises
 
     async def get_chat_history(self, channel_id):
         return list(self.messages)
@@ -141,6 +162,14 @@ class FakeDB:
     async def get_channel_mode(self, channel_id):
         return self.mode
 
+    async def log_usage(self, channel_id, guild_id, prompt_tokens, completion_tokens, mode):
+        if self.usage_raises:
+            raise RuntimeError("БД лягла на записі usage")
+        self.usage_calls.append(
+            dict(channel_id=channel_id, guild_id=guild_id, prompt_tokens=prompt_tokens,
+                 completion_tokens=completion_tokens, mode=mode)
+        )
+
 
 def _config(**over):
     base = dict(
@@ -150,6 +179,7 @@ def _config(**over):
         max_tool_iterations=6,
         system_prompt="",
         max_tokens=2048,
+        user_cooldown_seconds=0,
     )
     base.update(over)
     return SimpleNamespace(**base)
@@ -467,3 +497,115 @@ async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
     assert result.text == "Ответ по-русски"
     # обидва виклики (основний + ретрай вартового) з thinking=False
     assert seen == [False, False]
+
+
+# ---------------- облік витрат токенів (usage_log) у _run ----------------
+
+
+@pytest.mark.asyncio
+async def test_run_logs_usage_normal_mode(monkeypatch):
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
+    cog = ChatCog(_bot(db, _config(lang_guard="")))
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        return AgentResult(text="Ответ", prompt_tokens=120, completion_tokens=30, llm_calls=1)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    await cog._run(_message(cog.bot))
+    assert len(db.usage_calls) == 1
+    call = db.usage_calls[0]
+    assert call["channel_id"] == 42
+    assert call["guild_id"] == 7
+    assert call["prompt_tokens"] == 120
+    assert call["completion_tokens"] == 30
+    assert call["mode"] == "normal"
+
+
+@pytest.mark.asyncio
+async def test_run_logs_usage_zzz_mode(monkeypatch):
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
+    bot = _bot(db, _config(lang_guard=""))
+    bot.zzz_db = FakeZZZ(block="", labels=[])
+    cog = ChatCog(bot)
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        return AgentResult(text="Ответ по ZZZ", prompt_tokens=200, completion_tokens=40, llm_calls=1)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    await cog._run(_message(cog.bot))
+    assert db.usage_calls[0]["mode"] == "zzz"
+
+
+@pytest.mark.asyncio
+async def test_run_logs_usage_includes_guard_retry_tokens(monkeypatch):
+    # запис має відображати сумарні токени (основний прогін + ретрай вартового)
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
+    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+
+    ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
+    scripted = [
+        AgentResult(text=ua, prompt_tokens=100, completion_tokens=20, llm_calls=1),
+        AgentResult(text="Привет, по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1),
+    ]
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        return scripted.pop(0)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    await cog._run(_message(cog.bot))
+    call = db.usage_calls[0]
+    assert call["prompt_tokens"] == 110
+    assert call["completion_tokens"] == 25
+
+
+@pytest.mark.asyncio
+async def test_run_usage_logging_failure_does_not_break_reply(monkeypatch):
+    # якщо log_usage кидає — відповідь усе одно повертається без винятку
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}], usage_raises=True)
+    cog = ChatCog(_bot(db, _config(lang_guard="")))
+
+    async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
+        return AgentResult(text="Ответ", prompt_tokens=1, completion_tokens=1, llm_calls=1)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    result, _ = await cog._run(_message(cog.bot))
+    assert result.text == "Ответ"
+
+
+# ---------------- пер-юзерний антифлуд-кулдаун ----------------
+
+
+def test_user_cooldown_disabled_always_allows():
+    cog = ChatCog(_bot(FakeDB(), _config(user_cooldown_seconds=0)))
+    assert cog._check_user_cooldown(1, now=100.0) is True
+    # навіть одразу поспіль — вимкнено = завжди дозволено
+    assert cog._check_user_cooldown(1, now=100.0) is True
+
+
+def test_user_cooldown_blocks_within_window():
+    cog = ChatCog(_bot(FakeDB(), _config(user_cooldown_seconds=5)))
+    assert cog._check_user_cooldown(1, now=100.0) is True   # перший — дозволено
+    assert cog._check_user_cooldown(1, now=102.0) is False  # за 2 с — рано
+    assert cog._check_user_cooldown(1, now=106.0) is True   # за 6 с — можна
+
+
+def test_user_cooldown_is_per_user():
+    cog = ChatCog(_bot(FakeDB(), _config(user_cooldown_seconds=5)))
+    assert cog._check_user_cooldown(1, now=100.0) is True
+    # інший юзер не чіпається кулдауном першого
+    assert cog._check_user_cooldown(2, now=100.0) is True
+
+
+def test_user_cooldown_sweeps_stale_keys():
+    cog = ChatCog(_bot(FakeDB(), _config(user_cooldown_seconds=5)))
+    # набиваємо словник до порога чистки протухлими ключами
+    for uid in range(chat_mod.USER_COOLDOWN_SWEEP_EVERY):
+        cog._check_user_cooldown(uid, now=0.0)
+    # свіжий дотик далеко в майбутньому тригерить sweep протухлих
+    cog._check_user_cooldown(999999, now=10_000.0)
+    # старі ключі (їх кулдаун давно сплив) прибрані
+    assert len(cog._user_cooldowns) < chat_mod.USER_COOLDOWN_SWEEP_EVERY
