@@ -17,7 +17,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import discord
@@ -42,7 +42,7 @@ class ToolContext:
     """Все, що потрібно інструментам: бот, повідомлення-тригер і БД."""
     bot: discord.Client
     message: discord.Message
-    db: "Database"
+    db: Database
 
 
 # ---------------- Реалізації інструментів ----------------
@@ -431,7 +431,7 @@ async def execute_tool(name: str, arguments: str | None, tctx: ToolContext) -> s
         return f"Помилка аргументів {name}: {exc}"
     except discord.Forbidden:
         return "Помилка: у бота немає прав на цю дію в цьому каналі."
-    except Exception as exc:  # noqa: BLE001 — помилку віддаємо моделі, лог лишаємо собі
+    except Exception as exc:
         log.exception("Інструмент %s впав", name)
         return f"Помилка виконання {name}: {type(exc).__name__}: {exc}"
     return str(result)[:MAX_RESULT_CHARS]

@@ -5,6 +5,7 @@ LEVELS_ENABLED=false у .env (ког тоді просто не завантаж
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import random
 import time
@@ -71,12 +72,10 @@ class LevelsCog(commands.Cog, name="Рівні"):
         new_total = await self.bot.db.add_xp(message.guild.id, message.author.id, gained)
 
         if level_from_xp(new_total)[0] > level_from_xp(old_total)[0]:
-            try:
+            with contextlib.suppress(discord.HTTPException):
                 await message.channel.send(
                     f"🎉 {message.author.mention} досягає **{level_from_xp(new_total)[0]} рівня**!"
                 )
-            except discord.HTTPException:
-                pass
 
     @app_commands.command(name="rank", description="Рівень і XP користувача")
     @app_commands.describe(member="Чий ранг (порожньо = твій)")

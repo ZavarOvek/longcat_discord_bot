@@ -2,7 +2,10 @@
 
 # 🐈‍⬛ LongCat Discord Bot
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen.svg)](CHANGELOG.md)
+[![Tests](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml/badge.svg)](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Персональний Discord-бот на Python: LLM-чат на базі **Meituan LongCat-2.0** (OpenAI-сумісний API) з інструментами й пам'яттю розмов + класичний набір
 серверних фіч (модерація, нагадування, опитування, рівні). Запускається

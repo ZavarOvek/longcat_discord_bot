@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 
@@ -32,11 +33,9 @@ EXTENSIONS = [
 def setup_logging(cfg: Config) -> None:
     # Windows + cp1251: щоб юнікод у консолі не валив бота (перевірено Довгокотом),
     # переводимо stdout/stderr в utf-8 з errors="replace"; повний лог — у файлі.
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s", "%Y-%m-%d %H:%M:%S"

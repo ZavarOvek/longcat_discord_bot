@@ -6,14 +6,12 @@ import random
 import pytest
 
 from utils import (
-    SAFE_LIMIT,
     fix_tables,
     looks_ukrainian,
     parse_duration,
     roll_dice,
     split_message,
 )
-
 
 # ---------------- split_message ----------------
 

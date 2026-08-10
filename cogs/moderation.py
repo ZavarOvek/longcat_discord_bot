@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import datetime
 import time
-from typing import Optional
 
 import discord
 from discord import app_commands
@@ -19,7 +18,7 @@ from utils import parse_duration
 MAX_TIMEOUT_SECONDS = 28 * 86400  # жорсткий ліміт Discord
 
 
-def _blocked(invoker: discord.Member, target: discord.Member, me: discord.Member) -> Optional[str]:
+def _blocked(invoker: discord.Member, target: discord.Member, me: discord.Member) -> str | None:
     """Причина, чому дію виконати не можна, або None, якщо все гаразд."""
     if target.id == invoker.id:
         return "Не можна застосувати до себе."
@@ -75,7 +74,7 @@ class ModerationCog(commands.Cog, name="Модерація"):
         interaction: discord.Interaction,
         member: discord.Member,
         duration: str,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ):
         seconds = parse_duration(duration)
         if not seconds or seconds > MAX_TIMEOUT_SECONDS:
@@ -118,7 +117,7 @@ class ModerationCog(commands.Cog, name="Модерація"):
     @app_commands.checks.bot_has_permissions(kick_members=True)
     @app_commands.guild_only()
     async def kick(
-        self, interaction: discord.Interaction, member: discord.Member, reason: Optional[str] = None
+        self, interaction: discord.Interaction, member: discord.Member, reason: str | None = None
     ):
         error = _blocked(interaction.user, member, interaction.guild.me)
         if error:
@@ -141,7 +140,7 @@ class ModerationCog(commands.Cog, name="Модерація"):
         self,
         interaction: discord.Interaction,
         member: discord.Member,
-        reason: Optional[str] = None,
+        reason: str | None = None,
         delete_days: app_commands.Range[int, 0, 7] = 0,
     ):
         error = _blocked(interaction.user, member, interaction.guild.me)

@@ -17,7 +17,6 @@ import cogs.chat as chat_mod
 from cogs.chat import ChatCog, build_embeds, build_footer, build_quota_text
 from llm.tools import AgentResult
 
-
 # ---------------- build_footer ----------------
 
 def test_footer_tokens_only():
@@ -166,13 +165,18 @@ class FakeDB:
         if self.usage_raises:
             raise RuntimeError("БД лягла на записі usage")
         self.usage_calls.append(
-            dict(channel_id=channel_id, guild_id=guild_id, prompt_tokens=prompt_tokens,
-                 completion_tokens=completion_tokens, mode=mode)
+            {
+                "channel_id": channel_id,
+                "guild_id": guild_id,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "mode": mode,
+            }
         )
 
 
 def _config(**over):
-    base = dict(
+    base = dict(  # noqa: C408 — kwargs form keeps this long literal readable
         web_tools=False,
         lang_guard="ru",
         history_token_limit=24000,
@@ -448,7 +452,7 @@ async def test_run_thinking_disabled_in_zzz(monkeypatch):
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
-    result, zzz_mode = await cog._run(_message(cog.bot))
+    _result, zzz_mode = await cog._run(_message(cog.bot))
     assert zzz_mode is True
     # у zzz-режимі мислення примусово вимкнене
     assert seen == [False]

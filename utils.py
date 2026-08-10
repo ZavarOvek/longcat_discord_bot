@@ -14,7 +14,8 @@ def _scan_fences(chunk: str) -> str | None:
     """Повертає мову відкритого код-блоку в кінці шматка, або None якщо всі закриті."""
     opened: str | None = None
     for match in _FENCE_RE.finditer(chunk):
-        if opened is None:
+        # A plain toggle: a ternary here reads worse than the two branches.
+        if opened is None:  # noqa: SIM108
             opened = match.group(1) or ""
         else:
             opened = None

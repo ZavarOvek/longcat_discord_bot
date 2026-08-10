@@ -12,7 +12,6 @@ import pytest
 
 from zzz.db import ZZZDatabase
 
-
 AGENTS = {
     "1091": {
         "name": "Miyabi", "full_name": "Hoshimi Miyabi", "name_zh": "星见雅",
@@ -228,18 +227,18 @@ def test_auto_context_finds_entity(zdb):
 
 def test_auto_context_cyrillic_translit(zdb):
     # «Міябі» -> miyabi через трансліт
-    block, labels = zdb.auto_context("що там по Міябі")
+    _block, labels = zdb.auto_context("що там по Міябі")
     assert labels and "Miyabi" in labels
 
 
 def test_auto_context_declension_ending(zdb):
     # відмінкове закінчення відкушується («Янагі» -> yanagi)
-    block, labels = zdb.auto_context("білд на Янагі зараз")
+    _block, labels = zdb.auto_context("білд на Янагі зараз")
     assert labels and "Yanagi" in labels
 
 
 def test_auto_context_zh_match(zdb):
-    block, labels = zdb.auto_context("гайд по 星见雅 будь ласка")
+    _block, labels = zdb.auto_context("гайд по 星见雅 будь ласка")
     assert labels and "Miyabi" in labels
 
 
@@ -250,7 +249,7 @@ def test_auto_context_no_hits(zdb):
 
 
 def test_auto_context_limit(zdb):
-    block, labels = zdb.auto_context("Miyabi Yanagi Pulchra разом", limit=2)
+    _block, labels = zdb.auto_context("Miyabi Yanagi Pulchra разом", limit=2)
     assert len(labels) <= 2
 
 

@@ -12,10 +12,7 @@ import json
 import logging
 from types import SimpleNamespace
 
-import pytest
-
 from zzz import build_db as bd
-
 
 # ---------------- clean / brief / prop_name ----------------
 

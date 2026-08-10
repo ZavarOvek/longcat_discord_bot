@@ -166,7 +166,7 @@ async def test_breaker_half_open_after_cooldown(monkeypatch):
 
     # відкриваємо брейкер
     fail = _fail_script() * client_mod.BREAKER_THRESHOLD
-    fake = _install(client, fail + [_response("живий")])
+    fake = _install(client, [*fail, _response("живий")])
     for _ in range(client_mod.BREAKER_THRESHOLD):
         with pytest.raises(LLMError):
             await client.chat([{"role": "user", "content": "hi"}])

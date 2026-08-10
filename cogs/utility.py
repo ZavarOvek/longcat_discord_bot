@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
 
 import discord
 from discord import app_commands
@@ -42,7 +41,7 @@ class UtilityCog(commands.Cog, name="Утиліти"):
     @app_commands.command(name="userinfo", description="Інформація про користувача")
     @app_commands.describe(member="Про кого (порожньо = про тебе)")
     @app_commands.guild_only()
-    async def userinfo(self, interaction: discord.Interaction, member: Optional[discord.Member] = None):
+    async def userinfo(self, interaction: discord.Interaction, member: discord.Member | None = None):
         member = member or interaction.user
         color = member.color if member.color.value else discord.Color.blurple()
         embed = discord.Embed(title=member.display_name, color=color)
@@ -59,7 +58,7 @@ class UtilityCog(commands.Cog, name="Утиліти"):
 
     @app_commands.command(name="avatar", description="Аватар користувача")
     @app_commands.describe(user="Чий аватар (порожньо = твій)")
-    async def avatar(self, interaction: discord.Interaction, user: Optional[discord.User] = None):
+    async def avatar(self, interaction: discord.Interaction, user: discord.User | None = None):
         user = user or interaction.user
         embed = discord.Embed(title=f"Аватар — {user.display_name}", color=discord.Color.blurple())
         embed.set_image(url=user.display_avatar.url)

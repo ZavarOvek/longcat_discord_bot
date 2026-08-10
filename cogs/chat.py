@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import defaultdict
@@ -96,7 +97,7 @@ def build_embeds(chunks: list[str], *, zzz: bool, footer: str | None) -> list[di
 class ReplyView(discord.ui.View):
     """Кнопки під останнім повідомленням відповіді."""
 
-    def __init__(self, cog: "ChatCog", user_message: discord.Message):
+    def __init__(self, cog: ChatCog, user_message: discord.Message):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.cog = cog
         self.user_message = user_message
@@ -104,10 +105,8 @@ class ReplyView(discord.ui.View):
 
     async def on_timeout(self) -> None:
         if self.message is not None:
-            try:
+            with contextlib.suppress(discord.HTTPException):
                 await self.message.edit(view=None)
-            except discord.HTTPException:
-                pass
 
     @discord.ui.button(emoji="🔁", label="Переролити", style=discord.ButtonStyle.secondary)
     async def reroll_button(self, interaction: discord.Interaction, _button: discord.ui.Button):
@@ -118,15 +117,17 @@ class ReplyView(discord.ui.View):
             return
         await interaction.response.defer()
         self.stop()
-        try:
+        with contextlib.suppress(discord.HTTPException):
             await interaction.message.edit(view=None)
-        except discord.HTTPException:
-            pass
         await self.cog.reroll(self.user_message)
 
     @discord.ui.button(emoji="🧹", label="Забути розмову", style=discord.ButtonStyle.secondary)
     async def forget_button(self, interaction: discord.Interaction, _button: discord.ui.Button):
-        deleted = await self.cog._clear_history(interaction.channel_id, interaction.guild_id)
+        # The View is a companion of ChatCog declared in this same module;
+        # `_clear_history` is private to the module, not to the class.
+        deleted = await self.cog._clear_history(  # noqa: SLF001
+            interaction.channel_id, interaction.guild_id
+        )
         await interaction.response.send_message(
             f"🧹 Пам'ять цього каналу очищено ({deleted} повідомлень).", ephemeral=True
         )
@@ -227,18 +228,14 @@ class ChatCog(commands.Cog, name="Чат"):
         # Антифлуд: якщо юзер шле запити частіше за USER_COOLDOWN_SECONDS —
         # мовчазна реакція ⏳ і жодного виклику LLM (токени бережемо).
         if not self._check_user_cooldown(message.author.id, time.monotonic()):
-            try:
+            with contextlib.suppress(discord.HTTPException):
                 await message.add_reaction("⏳")
-            except discord.HTTPException:
-                pass
             return
 
         lock = self._locks[message.channel.id]
         if lock.locked():
-            try:
+            with contextlib.suppress(discord.HTTPException):
                 await message.add_reaction("⏳")
-            except discord.HTTPException:
-                pass
 
         async with lock:
             try:
@@ -249,7 +246,7 @@ class ChatCog(commands.Cog, name="Чат"):
                         f"{message.author.display_name}: {content}",
                     )
                     result, zzz_mode = await self._run(message)
-            except Exception as exc:  # noqa: BLE001 — користувачу коротко, деталі в лог
+            except Exception as exc:
                 log.exception("Помилка генерації відповіді")
                 await message.reply(
                     f"⚠️ Не вдалося отримати відповідь: {type(exc).__name__}. Деталі — у лог-файлі.",
@@ -298,7 +295,7 @@ class ChatCog(commands.Cog, name="Чат"):
                 result.prompt_tokens, result.completion_tokens,
                 "zzz" if zzz_mode else "normal",
             )
-        except Exception:  # noqa: BLE001 — облік необов'язковий, лог і далі
+        except Exception:
             log.exception("Не вдалося записати usage_log")
 
         return result, zzz_mode
@@ -360,14 +357,12 @@ class ChatCog(commands.Cog, name="Чат"):
             try:
                 async with user_message.channel.typing():
                     result, zzz_mode = await self._run(user_message)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.exception("Перерол впав")
-                try:
+                with contextlib.suppress(discord.HTTPException):
                     await user_message.channel.send(
                         f"⚠️ Переролити не вдалося: {type(exc).__name__}. Деталі — у лог-файлі."
                     )
-                except discord.HTTPException:
-                    pass
                 return
         await self._send_reply(user_message, result, zzz_mode)
 

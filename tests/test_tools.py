@@ -13,7 +13,6 @@ from llm import tools as tools_mod
 from llm.client import ChatResult
 from llm.tools import AgentResult, execute_tool, run_agent
 
-
 # ---------------- фейковий LLM і виклики тулів ----------------
 
 def _tool_call(call_id, name, arguments="{}"):

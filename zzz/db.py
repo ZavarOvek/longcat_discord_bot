@@ -51,7 +51,7 @@ class ZZZDatabase:
 
     # ---------------- завантаження ----------------
 
-    def load(self) -> "ZZZDatabase":
+    def load(self) -> ZZZDatabase:
         missing = [k for k in KINDS if not (self.root / f"{k}.json").exists()]
         if missing:
             raise FileNotFoundError(

@@ -1,0 +1,19 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF", "BLE", "SLF"]
+ignore = [
+    # RUF001-003 flag Cyrillic letters as "ambiguous" look-alikes of Latin ones.
+    # The bot speaks Ukrainian, so those are false positives by design.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # E501 is left to `ruff format`; two tools arguing over line length is worse
+    # than one, and the formatter cannot split string literals anyway.
+    "E501",
+]
+
+[lint.per-file-ignores]
+# Tests legitimately reach into private helpers of the objects under test.
+"tests/*" = ["SLF001"]

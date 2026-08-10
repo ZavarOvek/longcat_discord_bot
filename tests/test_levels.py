@@ -9,12 +9,11 @@ from types import SimpleNamespace
 
 from cogs.levels import (
     COOLDOWN_SWEEP_EVERY,
-    LevelsCog,
     XP_COOLDOWN_SECONDS,
+    LevelsCog,
     level_from_xp,
     xp_needed,
 )
-
 
 # ---------------- формули ----------------
 
@@ -43,7 +42,7 @@ def test_level_from_xp_accumulates():
 
 def test_level_from_xp_partial_progress():
     total = xp_needed(0) + 30
-    level, current, needed = level_from_xp(total)
+    level, current, _needed = level_from_xp(total)
     assert level == 1
     assert current == 30
 
