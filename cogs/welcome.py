@@ -2,6 +2,7 @@
 
 Потребує увімкненого SERVER MEMBERS INTENT у Developer Portal.
 """
+
 from __future__ import annotations
 
 import logging

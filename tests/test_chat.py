@@ -7,6 +7,7 @@
 run_agent мокається на рівні модуля cogs.chat, тому реальний LLM не потрібен.
 Discord-обʼєкти (bot, message, channel) — легкі SimpleNamespace-фейки.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -19,13 +20,14 @@ from llm.tools import AgentResult
 
 # ---------------- build_footer ----------------
 
+
 def test_footer_tokens_only():
     result = AgentResult(text="x", prompt_tokens=1500, completion_tokens=300)
     footer = build_footer(result)
     assert "🎫" in footer
     assert "1.5k" in footer and "0.3k" in footer
     assert "🔧" not in footer  # тулів не було
-    assert "⛓" not in footer   # один виклик
+    assert "⛓" not in footer  # один виклик
 
 
 def test_footer_lists_tools():
@@ -47,8 +49,15 @@ def test_footer_truncates_tool_list():
 
 # ---------------- build_quota_text ----------------
 
+
 def test_quota_text_empty():
-    empty = {"replies": 0, "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "top_mode": None}
+    empty = {
+        "replies": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "top_mode": None,
+    }
     text = build_quota_text(empty, empty)
     # без запитів — зрозуміле повідомлення, без падіння на None-режимі
     assert "0" in text
@@ -56,8 +65,20 @@ def test_quota_text_empty():
 
 
 def test_quota_text_reports_numbers():
-    today = {"replies": 3, "prompt_tokens": 1200, "completion_tokens": 300, "total_tokens": 1500, "top_mode": "zzz"}
-    week = {"replies": 20, "prompt_tokens": 9000, "completion_tokens": 2000, "total_tokens": 11000, "top_mode": "normal"}
+    today = {
+        "replies": 3,
+        "prompt_tokens": 1200,
+        "completion_tokens": 300,
+        "total_tokens": 1500,
+        "top_mode": "zzz",
+    }
+    week = {
+        "replies": 20,
+        "prompt_tokens": 9000,
+        "completion_tokens": 2000,
+        "total_tokens": 11000,
+        "top_mode": "normal",
+    }
     text = build_quota_text(today, week)
     assert "3" in text and "1500" in text
     assert "20" in text and "11000" in text
@@ -65,6 +86,7 @@ def test_quota_text_reports_numbers():
 
 
 # ---------------- build_embeds ----------------
+
 
 def test_embeds_one_per_chunk_footer_on_last():
     embeds = build_embeds(["перший", "другий"], zzz=False, footer="хвіст")
@@ -96,6 +118,7 @@ def test_embeds_zzz_badge_only_on_first():
 
 
 # ---------------- _build_payloads ----------------
+
 
 def _bare_cog():
     return ChatCog(SimpleNamespace(db=None, config=None, llm=None, user=None, zzz_db=None))
@@ -135,6 +158,7 @@ def test_payloads_plain_no_footer():
 
 
 # ---------------- фейкові Discord/БД/LLM ----------------
+
 
 class FakeDB:
     """Мінімальна БД для чат-кога: історія в пам'яті + режим каналу."""
@@ -207,9 +231,15 @@ def _message(bot, content="Привіт", channel_id=42):
 
 # ---------------- _clear_history ----------------
 
+
 @pytest.mark.asyncio
 async def test_clear_history_leaves_reset_marker():
-    db = FakeDB(history=[{"role": "user", "content": "старе"}, {"role": "assistant", "content": "теж старе"}])
+    db = FakeDB(
+        history=[
+            {"role": "user", "content": "старе"},
+            {"role": "assistant", "content": "теж старе"},
+        ]
+    )
     cog = ChatCog(_bot(db, _config()))
     deleted = await cog._clear_history(channel_id=42, guild_id=7)
     assert deleted == 2
@@ -228,6 +258,7 @@ async def test_clear_history_empty_channel():
 
 # ---------------- мовний вартовий у _run ----------------
 
+
 @pytest.mark.asyncio
 async def test_lang_guard_retries_ukrainian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
@@ -237,7 +268,9 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
     scripted = [
         AgentResult(text=ua, llm_calls=1),
-        AgentResult(text="Привет, это ответ по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1),
+        AgentResult(
+            text="Привет, это ответ по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1
+        ),
     ]
 
     async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
@@ -534,7 +567,9 @@ async def test_run_logs_usage_zzz_mode(monkeypatch):
     cog = ChatCog(bot)
 
     async def fake_run_agent(llm, messages, tctx, iters, *, schemas, thinking=None):
-        return AgentResult(text="Ответ по ZZZ", prompt_tokens=200, completion_tokens=40, llm_calls=1)
+        return AgentResult(
+            text="Ответ по ZZZ", prompt_tokens=200, completion_tokens=40, llm_calls=1
+        )
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -592,9 +627,9 @@ def test_user_cooldown_disabled_always_allows():
 
 def test_user_cooldown_blocks_within_window():
     cog = ChatCog(_bot(FakeDB(), _config(user_cooldown_seconds=5)))
-    assert cog._check_user_cooldown(1, now=100.0) is True   # перший — дозволено
+    assert cog._check_user_cooldown(1, now=100.0) is True  # перший — дозволено
     assert cog._check_user_cooldown(1, now=102.0) is False  # за 2 с — рано
-    assert cog._check_user_cooldown(1, now=106.0) is True   # за 6 с — можна
+    assert cog._check_user_cooldown(1, now=106.0) is True  # за 6 с — можна
 
 
 def test_user_cooldown_is_per_user():

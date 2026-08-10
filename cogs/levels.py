@@ -3,6 +3,7 @@
 15–25 XP за повідомлення, кулдаун 60 с на користувача. Вимикається через
 LEVELS_ENABLED=false у .env (ког тоді просто не завантажується).
 """
+
 from __future__ import annotations
 
 import contextlib

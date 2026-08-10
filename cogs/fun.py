@@ -1,4 +1,5 @@
 """Розваги: кубики, монетка, магічна куля, випадковий вибір."""
+
 from __future__ import annotations
 
 import random
@@ -10,12 +11,23 @@ from discord.ext import commands
 from utils import roll_dice
 
 ANSWERS_8BALL = [
-    "Безсумнівно.", "Однозначно так.", "Так.", "Схоже, що так.",
-    "Можеш на це розраховувати.", "Зірки кажуть — так.", "Найімовірніше.",
-    "Знаки вказують на «так».", "Відповідь туманна, спробуй ще раз.",
-    "Спитай пізніше.", "Краще не казатиму зараз.", "Зосередься і спитай знову.",
-    "Не розраховуй на це.", "Моя відповідь — ні.", "Мої джерела кажуть — ні.",
-    "Перспективи не дуже.", "Дуже сумнівно.",
+    "Безсумнівно.",
+    "Однозначно так.",
+    "Так.",
+    "Схоже, що так.",
+    "Можеш на це розраховувати.",
+    "Зірки кажуть — так.",
+    "Найімовірніше.",
+    "Знаки вказують на «так».",
+    "Відповідь туманна, спробуй ще раз.",
+    "Спитай пізніше.",
+    "Краще не казатиму зараз.",
+    "Зосередься і спитай знову.",
+    "Не розраховуй на це.",
+    "Моя відповідь — ні.",
+    "Мої джерела кажуть — ні.",
+    "Перспективи не дуже.",
+    "Дуже сумнівно.",
 ]
 
 
@@ -33,7 +45,9 @@ class FunCog(commands.Cog, name="Розваги"):
             return
         rolls_text = ", ".join(map(str, rolls)) if len(rolls) <= 25 else f"{len(rolls)} кидків"
         mod_text = f" {modifier:+d}" if modifier else ""
-        await interaction.response.send_message(f"🎲 `{formula}` → [{rolls_text}]{mod_text} = **{total}**")
+        await interaction.response.send_message(
+            f"🎲 `{formula}` → [{rolls_text}]{mod_text} = **{total}**"
+        )
 
     @app_commands.command(name="coinflip", description="Підкинути монетку")
     async def coinflip(self, interaction: discord.Interaction):

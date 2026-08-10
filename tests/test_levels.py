@@ -3,6 +3,7 @@
 - прибирання _cooldowns: протухлі ключі викидаються, свіжі лишаються,
   словник не росте безмежно.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from cogs.levels import (
 )
 
 # ---------------- формули ----------------
+
 
 def test_xp_needed_formula():
     # 5n² + 50n + 100
@@ -48,6 +50,7 @@ def test_level_from_xp_partial_progress():
 
 
 # ---------------- прибирання кулдаунів ----------------
+
 
 def _cog():
     bot = SimpleNamespace(db=None)

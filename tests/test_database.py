@@ -2,6 +2,7 @@
 
 Кожен тест бере власну БД у пам'яті/тимчасовому файлі, тож ізольований.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,6 +19,7 @@ async def db(tmp_path):
 
 
 # ---------------- chat_history ----------------
+
 
 async def test_add_and_get_chat_history_order(db):
     await db.add_chat_message(1, 10, "user", "перше")
@@ -79,8 +81,11 @@ async def test_delete_last_assistant_scoped_to_channel(db):
 
 # ---------------- reminders ----------------
 
+
 async def test_add_and_due_reminders(db):
-    rid = await db.add_reminder(user_id=5, channel_id=1, guild_id=10, text="пити воду", remind_at=100)
+    rid = await db.add_reminder(
+        user_id=5, channel_id=1, guild_id=10, text="пити воду", remind_at=100
+    )
     assert isinstance(rid, int) and rid > 0
     due = await db.due_reminders(now=150)
     assert len(due) == 1
@@ -118,11 +123,12 @@ async def test_user_reminders_excludes_done(db):
 async def test_delete_reminder_owner_check(db):
     rid = await db.add_reminder(5, 1, 10, "x", remind_at=100)
     assert await db.delete_reminder(rid, user_id=999) is False  # чужий
-    assert await db.delete_reminder(rid, user_id=5) is True     # власник
-    assert await db.delete_reminder(rid, user_id=5) is False    # вже нема
+    assert await db.delete_reminder(rid, user_id=5) is True  # власник
+    assert await db.delete_reminder(rid, user_id=5) is False  # вже нема
 
 
 # ---------------- warns ----------------
+
 
 async def test_add_warn_returns_count(db):
     assert await db.add_warn(1, 5, 100, "спам") == 1
@@ -152,6 +158,7 @@ async def test_clear_warns(db):
 
 
 # ---------------- levels (XP) ----------------
+
 
 async def test_add_xp_accumulates(db):
     assert await db.add_xp(1, 5, 10) == 10
@@ -185,6 +192,7 @@ async def test_xp_scoped_by_guild(db):
 
 # ---------------- channel_modes ----------------
 
+
 async def test_channel_mode_default_none(db):
     assert await db.get_channel_mode(1) is None
 
@@ -214,6 +222,7 @@ async def test_set_channel_mode_overwrites(db):
 
 # ---------------- usage_log (облік витрат токенів) ----------------
 
+
 async def test_usage_summary_empty(db):
     # порожній лог: усі суми нульові, кількість відповідей 0
     summary = await db.usage_summary(days=1, now=1000)
@@ -224,7 +233,9 @@ async def test_usage_summary_empty(db):
 
 
 async def test_log_and_summarize_single(db):
-    await db.log_usage(channel_id=1, guild_id=10, prompt_tokens=100, completion_tokens=20, mode="normal", now=1000)
+    await db.log_usage(
+        channel_id=1, guild_id=10, prompt_tokens=100, completion_tokens=20, mode="normal", now=1000
+    )
     summary = await db.usage_summary(days=1, now=1000)
     assert summary["replies"] == 1
     assert summary["prompt_tokens"] == 100
@@ -245,8 +256,8 @@ async def test_usage_summary_sums_multiple(db):
 
 async def test_usage_summary_window_excludes_old(db):
     # запис старший за вікно (days=1 = 86400 с) не потрапляє в підсумок
-    await db.log_usage(1, 10, 100, 20, "normal", now=1000)          # старий
-    await db.log_usage(1, 10, 7, 3, "normal", now=1000 + 86400)     # свіжий
+    await db.log_usage(1, 10, 100, 20, "normal", now=1000)  # старий
+    await db.log_usage(1, 10, 7, 3, "normal", now=1000 + 86400)  # свіжий
     summary = await db.usage_summary(days=1, now=1000 + 86400)
     assert summary["replies"] == 1
     assert summary["prompt_tokens"] == 7

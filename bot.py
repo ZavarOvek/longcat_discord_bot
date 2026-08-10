@@ -2,6 +2,7 @@
 
 Запуск: python bot.py (з активованим .venv і заповненим .env).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -60,7 +61,7 @@ class LongcatBot(commands.Bot):
     def __init__(self, cfg: Config):
         intents = discord.Intents.default()
         intents.message_content = True  # privileged: текст повідомлень
-        intents.members = True          # privileged: on_member_join, пошук учасників
+        intents.members = True  # privileged: on_member_join, пошук учасників
 
         super().__init__(
             command_prefix="§longcat§",  # префікс-команд немає, бот повністю на slash

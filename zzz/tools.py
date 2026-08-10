@@ -4,6 +4,7 @@
 схеми додаються до запиту ЛИШЕ коли канал у режимі zzz (/mode zzz) — у
 звичайних каналах радник не витрачає жодного токена.
 """
+
 from __future__ import annotations
 
 import logging

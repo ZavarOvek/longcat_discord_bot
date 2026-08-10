@@ -4,6 +4,7 @@
 Той самий механізм використовує LLM-інструмент create_reminder — він просто
 пише в ту саму таблицю.
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,7 +74,9 @@ class RemindersCog(commands.Cog, name="Нагадування"):
         reminder_id = await self.bot.db.add_reminder(
             interaction.user.id, interaction.channel_id, interaction.guild_id, text[:500], remind_at
         )
-        await interaction.response.send_message(f"⏰ Ок, нагадаю <t:{remind_at}:R> (№{reminder_id}).")
+        await interaction.response.send_message(
+            f"⏰ Ок, нагадаю <t:{remind_at}:R> (№{reminder_id})."
+        )
 
     @app_commands.command(name="reminders", description="Мої активні нагадування")
     async def reminders(self, interaction: discord.Interaction):
@@ -86,12 +89,16 @@ class RemindersCog(commands.Cog, name="Нагадування"):
         ]
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
-    @app_commands.command(name="reminder_delete", description="Видалити своє нагадування за номером")
+    @app_commands.command(
+        name="reminder_delete", description="Видалити своє нагадування за номером"
+    )
     @app_commands.describe(number="Номер нагадування (див. /reminders)")
     async def reminder_delete(self, interaction: discord.Interaction, number: int):
         deleted = await self.bot.db.delete_reminder(number, interaction.user.id)
         if deleted:
-            await interaction.response.send_message(f"🗑 Нагадування №{number} видалено.", ephemeral=True)
+            await interaction.response.send_message(
+                f"🗑 Нагадування №{number} видалено.", ephemeral=True
+            )
         else:
             await interaction.response.send_message(
                 "⛔ Серед твоїх активних нагадувань такого номера немає.", ephemeral=True

@@ -11,6 +11,7 @@
     db.describe("agents", "1091") -> компактний текстовий блок
     db.overview("wengines")       -> перелік назв з рідкістю
 """
+
 from __future__ import annotations
 
 import difflib
@@ -23,11 +24,43 @@ KINDS = ("agents", "wengines", "discs", "bangboo")
 
 # --- кирилиця -> латиниця для матчингу імен («Пульхра» -> pulhra -> Pulchra) ---
 _CYR = {
-    "а": "a", "б": "b", "в": "v", "г": "g", "ґ": "g", "д": "d", "е": "e", "є": "e",
-    "ж": "zh", "з": "z", "и": "i", "і": "i", "ї": "i", "й": "i", "к": "k", "л": "l",
-    "м": "m", "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
-    "ф": "f", "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sh", "ь": "", "ъ": "",
-    "ю": "yu", "я": "ya", "э": "e", "ы": "i", "ё": "e",
+    "а": "a",
+    "б": "b",
+    "в": "v",
+    "г": "g",
+    "ґ": "g",
+    "д": "d",
+    "е": "e",
+    "є": "e",
+    "ж": "zh",
+    "з": "z",
+    "и": "i",
+    "і": "i",
+    "ї": "i",
+    "й": "i",
+    "к": "k",
+    "л": "l",
+    "м": "m",
+    "н": "n",
+    "о": "o",
+    "п": "p",
+    "р": "r",
+    "с": "s",
+    "т": "t",
+    "у": "u",
+    "ф": "f",
+    "х": "h",
+    "ц": "ts",
+    "ч": "ch",
+    "ш": "sh",
+    "щ": "sh",
+    "ь": "",
+    "ъ": "",
+    "ю": "yu",
+    "я": "ya",
+    "э": "e",
+    "ы": "i",
+    "ё": "e",
 }
 _WORD_RE = re.compile(r"[A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+")
 
@@ -168,14 +201,18 @@ class ZZZDatabase:
                 if name == variant:
                     results.append((1.0, kind, item_id, display))
             if len(variant) >= 4:
-                for close_name in difflib.get_close_matches(variant, self._name_pool, n=2, cutoff=0.78):
+                for close_name in difflib.get_close_matches(
+                    variant, self._name_pool, n=2, cutoff=0.78
+                ):
                     score = difflib.SequenceMatcher(None, variant, close_name).ratio()
                     for name, kind, item_id, display in self._name_index:
                         if name == close_name:
                             results.append((score, kind, item_id, display))
         return results
 
-    def auto_context(self, text: str, limit: int = 3, max_chars: int = 6000) -> tuple[str | None, list[str]]:
+    def auto_context(
+        self, text: str, limit: int = 3, max_chars: int = 6000
+    ) -> tuple[str | None, list[str]]:
         """Детермінований пошук сутностей у повідомленні -> готовий блок для промпта.
         Повертає (блок або None, список знайдених імен для футера)."""
         if not self.loaded or not text:
@@ -271,17 +308,22 @@ class ZZZDatabase:
                 continue
             needle = subject.lower()
             have = sum(
-                count for trait, count in traits.items()
+                count
+                for trait, count in traits.items()
                 if needle in trait.lower() or trait.lower() in needle
             )
             need = int(activation.get("count", 1))
             if have >= need:
-                matched.append(f"{label} — умова виконана ({subject}: {have}/{need}). {activation.get('text', '')}")
+                matched.append(
+                    f"{label} — умова виконана ({subject}: {have}/{need}). {activation.get('text', '')}"
+                )
 
         lines = [
-            "Команда: " + ", ".join(members)
+            "Команда: "
+            + ", ".join(members)
             + (f" · не впізнано: {', '.join(unknown)}" if unknown else ""),
-            "Риси команди: " + ", ".join(f"{trait}×{count}" for trait, count in traits.most_common()),
+            "Риси команди: "
+            + ", ".join(f"{trait}×{count}" for trait, count in traits.most_common()),
             "",
             f"Банбу з ВИКОНАНОЮ умовою ({len(matched)}):",
             *(matched or ["— жодного"]),
@@ -377,7 +419,9 @@ class ZZZDatabase:
                 value = recommend.get(name_key) or recommend.get(id_key)
                 if value:
                     parts.append(f"{label} {value}")
-            stats_txt = ", ".join(f"{k}: {v}" for k, v in (recommend.get("main_stats") or {}).items())
+            stats_txt = ", ".join(
+                f"{k}: {v}" for k, v in (recommend.get("main_stats") or {}).items()
+            )
             line = "Гра рекомендує: " + " + ".join(parts) if parts else "Гра рекомендує"
             if stats_txt:
                 line += f" · головні стати: {stats_txt}"
@@ -418,7 +462,8 @@ class ZZZDatabase:
         lines = [
             f"БАНБУ {r.get('name')} (id {item_id})"
             + (f" / {r['name_zh']}" if r.get("name_zh") else ""),
-            f"Рідкість {r.get('rarity')}" + (f" · {r['description']}" if r.get("description") else ""),
+            f"Рідкість {r.get('rarity')}"
+            + (f" · {r['description']}" if r.get("description") else ""),
         ]
         for slot, skill in (r.get("skills") or {}).items():
             lines.append(f"Навичка {slot}: {skill.get('name')} — {skill.get('brief')}")

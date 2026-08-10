@@ -4,6 +4,7 @@
 Фікстура пише реальні JSON-БД у tmp і вантажить їх через load() — так
 покривається і побудова індексу.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,69 +15,107 @@ from zzz.db import ZZZDatabase
 
 AGENTS = {
     "1091": {
-        "name": "Miyabi", "full_name": "Hoshimi Miyabi", "name_zh": "星见雅",
-        "rarity": "S", "element": "Ice", "special_element": "Frost",
-        "specialty": "Attack", "attack_type": "Slash", "faction": "Section 6",
+        "name": "Miyabi",
+        "full_name": "Hoshimi Miyabi",
+        "name_zh": "星见雅",
+        "rarity": "S",
+        "element": "Ice",
+        "special_element": "Frost",
+        "specialty": "Attack",
+        "attack_type": "Slash",
+        "faction": "Section 6",
         "base_stats": {"HP": 8000, "ATK": 900.0, "junk": 0},
         "core_skill": {"name": "Core", "brief": "морозить ворогів"},
         "skills": {"Basic": [{"name": "Удар", "brief": "базова атака"}]},
         "mindscapes": {"1": {"name": "M1", "brief": "підсилення"}},
         "game_recommend": {
-            "disc_4pc": "Woodpecker", "disc_2pc": "Polar Metal",
+            "disc_4pc": "Woodpecker",
+            "disc_2pc": "Polar Metal",
             "main_stats": {"slot4": "CRIT", "slot6": "ATK%"},
         },
     },
     "1220": {
-        "name": "Yanagi", "full_name": "Tsukishiro Yanagi", "name_zh": "月城柳",
-        "rarity": "S", "element": "Electric", "specialty": "Anomaly",
+        "name": "Yanagi",
+        "full_name": "Tsukishiro Yanagi",
+        "name_zh": "月城柳",
+        "rarity": "S",
+        "element": "Electric",
+        "specialty": "Anomaly",
         "faction": "Section 6",
         "curated": {
             "verdict": "T0 у більшості складів",
             "divergences": [
                 {
-                    "topic": "team", "cn": "з Miyabi", "west": "соло-дизбалансер",
-                    "reason": "різні мета-склади", "verdict": "бери з Miyabi",
-                    "confidence": "high", "patch": "2.0", "note": "перевір після патчу",
+                    "topic": "team",
+                    "cn": "з Miyabi",
+                    "west": "соло-дизбалансер",
+                    "reason": "різні мета-склади",
+                    "verdict": "бери з Miyabi",
+                    "confidence": "high",
+                    "patch": "2.0",
+                    "note": "перевір після патчу",
                 }
             ],
         },
     },
     "1300": {
-        "name": "Pulchra", "full_name": "Pulchra Fellini", "name_zh": "",
-        "rarity": "A", "element": "Physical", "specialty": "Stun", "faction": "Cunning Hares",
+        "name": "Pulchra",
+        "full_name": "Pulchra Fellini",
+        "name_zh": "",
+        "rarity": "A",
+        "element": "Physical",
+        "specialty": "Stun",
+        "faction": "Cunning Hares",
     },
 }
 
 WENGINES = {
     "14001": {
-        "name": "Steel Cushion", "name_zh": "钢铁坐垫", "rarity": "S", "specialty": "Attack",
+        "name": "Steel Cushion",
+        "name_zh": "钢铁坐垫",
+        "rarity": "S",
+        "specialty": "Attack",
         "base_stat": {"stat": "ATK", "value": 700},
         "adv_stat": {"stat": "CRIT", "value": 24},
-        "effect_name": "Cushion", "effect_r1": "бонус до фізичного",
+        "effect_name": "Cushion",
+        "effect_r1": "бонус до фізичного",
         "effect_r5": "більший бонус",
     },
 }
 
 DISCS = {
-    "31000": {"name": "Woodpecker Electro", "name_zh": "啄木鸟", "set2": "CRIT +8%", "set4": "стак після криту"},
+    "31000": {
+        "name": "Woodpecker Electro",
+        "name_zh": "啄木鸟",
+        "set2": "CRIT +8%",
+        "set4": "стак після криту",
+    },
 }
 
 BANGBOO = {
     "53001": {
-        "name": "Amillion", "name_zh": "阿米", "rarity": "S",
+        "name": "Amillion",
+        "name_zh": "阿米",
+        "rarity": "S",
         "description": "універсальний банбу",
         "skills": {"1": {"name": "Boom", "brief": "вибух"}},
         "activation": {"count": 2, "subject": "Ice", "text": "at least 2 Ice characters"},
     },
     "53002": {
-        "name": "Butler", "rarity": "A", "skills": {},
+        "name": "Butler",
+        "rarity": "A",
+        "skills": {},
         "activation": {"text": "щось нерозпарсене про squad"},  # без subject
     },
     "53003": {
-        "name": "Plain", "rarity": "A", "skills": {},  # без activation
+        "name": "Plain",
+        "rarity": "A",
+        "skills": {},  # без activation
     },
     "53004": {
-        "name": "Sharkboo", "rarity": "S", "skills": {},  # S без activation
+        "name": "Sharkboo",
+        "rarity": "S",
+        "skills": {},  # S без activation
     },
 }
 
@@ -97,6 +136,7 @@ def zdb(tmp_path):
 
 # ---------------- load ----------------
 
+
 def test_load_missing_files_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         ZZZDatabase(tmp_path / "empty").load()
@@ -107,6 +147,7 @@ def test_loaded_flag(zdb):
 
 
 # ---------------- search ----------------
+
 
 def test_search_exact_first(zdb):
     results = zdb.search("Miyabi")
@@ -145,6 +186,7 @@ def test_search_exact_ranked_before_partial(zdb):
 
 
 # ---------------- get / describe ----------------
+
 
 def test_get_by_id(zdb):
     found = zdb.get("agents", "1091")
@@ -206,6 +248,7 @@ def test_describe_disc(zdb):
 
 # ---------------- overview ----------------
 
+
 def test_overview_lists_all(zdb):
     text = zdb.overview("agents")
     assert "Miyabi" in text and "Yanagi" in text and "Pulchra" in text
@@ -217,6 +260,7 @@ def test_overview_unknown_kind(zdb):
 
 
 # ---------------- auto_context ----------------
+
 
 def test_auto_context_finds_entity(zdb):
     block, labels = zdb.auto_context("розкажи про Miyabi білд")
@@ -259,6 +303,7 @@ def test_auto_context_empty_text(zdb):
 
 # ---------------- match_bangboo ----------------
 
+
 def test_match_bangboo_condition_met(zdb):
     # Miyabi має element Ice + special_element Frost; умова Amillion — 2 Ice
     # додамо ще одного Ice-агента? У нас лише Miyabi Ice. count=2 не виконається
@@ -290,7 +335,9 @@ def test_match_bangboo_old_db_warning(tmp_path):
     old_bangboo = {"1": {"name": "NoActivation", "rarity": "A", "skills": {}}}
     for name, data in (("agents", AGENTS), ("wengines", WENGINES), ("discs", DISCS)):
         (root / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    (root / "bangboo.json").write_text(json.dumps(old_bangboo, ensure_ascii=False), encoding="utf-8")
+    (root / "bangboo.json").write_text(
+        json.dumps(old_bangboo, ensure_ascii=False), encoding="utf-8"
+    )
     (root / "meta.json").write_text(json.dumps(META, ensure_ascii=False), encoding="utf-8")
     db = ZZZDatabase(root).load()
     result = db.match_bangboo(["Miyabi"])
@@ -298,6 +345,7 @@ def test_match_bangboo_old_db_warning(tmp_path):
 
 
 # ---------------- stats_line ----------------
+
 
 def test_stats_line(zdb):
     line = zdb.stats_line()

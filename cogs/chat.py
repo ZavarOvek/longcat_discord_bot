@@ -5,6 +5,7 @@
 - FOOTER_STATS   — футер: викликані тули + витрачені токени запиту
 - REPLY_BUTTONS  — кнопки 🔁 «Переролити» (лише автор запиту) і 🧹 «Забути розмову»
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,7 +52,9 @@ def build_footer(result: AgentResult) -> str:
         if extra > 0:
             shown += f" +{extra}"
         parts.append(f"🔧 {shown}")
-    parts.append(f"🎫 {result.prompt_tokens / 1000:.1f}k → {result.completion_tokens / 1000:.1f}k токенів")
+    parts.append(
+        f"🎫 {result.prompt_tokens / 1000:.1f}k → {result.completion_tokens / 1000:.1f}k токенів"
+    )
     if result.llm_calls > 1:
         parts.append(f"⛓ {result.llm_calls} виклики LLM")
     return " │ ".join(parts)
@@ -74,9 +77,7 @@ def _quota_line(label: str, summary: dict) -> str:
 def build_quota_text(today: dict, week: dict) -> str:
     """Прозовий (не |-таблиця) підсумок витрат: сьогодні + 7 днів."""
     return (
-        "📊 **Витрати токенів**\n"
-        f"{_quota_line('За добу', today)}\n"
-        f"{_quota_line('За 7 днів', week)}"
+        f"📊 **Витрати токенів**\n{_quota_line('За добу', today)}\n{_quota_line('За 7 днів', week)}"
     )
 
 
@@ -242,7 +243,9 @@ class ChatCog(commands.Cog, name="Чат"):
                 async with message.channel.typing():
                     guild_id = message.guild.id if message.guild else None
                     await self.bot.db.add_chat_message(
-                        message.channel.id, guild_id, "user",
+                        message.channel.id,
+                        guild_id,
+                        "user",
                         f"{message.author.display_name}: {content}",
                     )
                     result, zzz_mode = await self._run(message)
@@ -262,7 +265,9 @@ class ChatCog(commands.Cog, name="Чат"):
         cfg = self.bot.config
         rows = await db.get_chat_history(message.channel.id)
 
-        system_suffix, schemas, zzz_mode, auto_labels, thinking = await self._resolve_mode(message, rows)
+        system_suffix, schemas, zzz_mode, auto_labels, thinking = await self._resolve_mode(
+            message, rows
+        )
 
         messages = build_messages(
             cfg,
@@ -274,7 +279,12 @@ class ChatCog(commands.Cog, name="Чат"):
         )
         tctx = ToolContext(bot=self.bot, message=message, db=db)
         result = await run_agent(
-            self.bot.llm, messages, tctx, cfg.max_tool_iterations, schemas=schemas, thinking=thinking
+            self.bot.llm,
+            messages,
+            tctx,
+            cfg.max_tool_iterations,
+            schemas=schemas,
+            thinking=thinking,
         )
         result.text = fix_tables(result.text)
 
@@ -291,8 +301,10 @@ class ChatCog(commands.Cog, name="Чат"):
         # включно з ретраєм вартового). Збій обліку не має валити відповідь.
         try:
             await db.log_usage(
-                message.channel.id, guild_id,
-                result.prompt_tokens, result.completion_tokens,
+                message.channel.id,
+                guild_id,
+                result.prompt_tokens,
+                result.completion_tokens,
                 "zzz" if zzz_mode else "normal",
             )
         except Exception:
@@ -309,7 +321,9 @@ class ChatCog(commands.Cog, name="Чат"):
         cfg = self.bot.config
         schemas = list(TOOL_SCHEMAS) if cfg.web_tools else list(BASE_TOOL_SCHEMAS)
         zzz_db = getattr(self.bot, "zzz_db", None)
-        zzz_mode = zzz_db is not None and await self.bot.db.get_channel_mode(message.channel.id) == "zzz"
+        zzz_mode = (
+            zzz_db is not None and await self.bot.db.get_channel_mode(message.channel.id) == "zzz"
+        )
         if not zzz_mode:
             return "", schemas, False, [], None
 
@@ -322,8 +336,12 @@ class ChatCog(commands.Cog, name="Чат"):
         return system_suffix, schemas, True, auto_labels, ZZZ_THINKING_OVERRIDE
 
     async def _apply_lang_guard(
-        self, result: AgentResult, messages: list[dict], tctx: ToolContext,
-        schemas: list, thinking: bool | None,
+        self,
+        result: AgentResult,
+        messages: list[dict],
+        tctx: ToolContext,
+        schemas: list,
+        thinking: bool | None,
     ) -> None:
         """Коригувальний ретрай, коли LongCat дзеркалить українську попри персону.
         Мутує result: один ретрай, і лише вдалий (не-український) замінює текст.
@@ -368,7 +386,9 @@ class ChatCog(commands.Cog, name="Чат"):
 
     # ---------------- відправка ----------------
 
-    async def _send_reply(self, message: discord.Message, result: AgentResult, zzz_mode: bool) -> None:
+    async def _send_reply(
+        self, message: discord.Message, result: AgentResult, zzz_mode: bool
+    ) -> None:
         cfg = self.bot.config
         footer = build_footer(result) if cfg.footer_stats else None
         view = ReplyView(self, message) if cfg.reply_buttons else None
@@ -417,7 +437,9 @@ class ChatCog(commands.Cog, name="Чат"):
             f"🧹 Пам'ять цього каналу очищено ({deleted} повідомлень)."
         )
 
-    @app_commands.command(name="context", description="Скільки пам'яті розмови накопичено в цьому каналі")
+    @app_commands.command(
+        name="context", description="Скільки пам'яті розмови накопичено в цьому каналі"
+    )
     async def context(self, interaction: discord.Interaction):
         rows = await self.bot.db.get_chat_history(interaction.channel_id)
         tokens = sum(estimate_tokens(row["content"]) for row in rows)
@@ -427,7 +449,9 @@ class ChatCog(commands.Cog, name="Чат"):
             ephemeral=True,
         )
 
-    @app_commands.command(name="quota", description="Скільки токенів витрачено за добу і за тиждень")
+    @app_commands.command(
+        name="quota", description="Скільки токенів витрачено за добу і за тиждень"
+    )
     async def quota(self, interaction: discord.Interaction):
         today = await self.bot.db.usage_summary(days=1)
         week = await self.bot.db.usage_summary(days=7)

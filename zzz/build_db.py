@@ -15,6 +15,7 @@
 Ручні нотатки (тіри, F2P-альтернативи) живуть окремо в data/zzz/curated/*.json
 і мерджаться в записи під ключем "curated", тож регенерація їх не стирає.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,12 +34,12 @@ from hakushin.models import zzz as zzz_models
 
 log = logging.getLogger("zzz.build_db")
 
-CONCURRENCY = 4          # ввічлива паралельність до API
-BRIEF_SKILL = 350        # ліміти обрізання описів, символів
+CONCURRENCY = 4  # ввічлива паралельність до API
+BRIEF_SKILL = 350  # ліміти обрізання описів, символів
 BRIEF_MINDSCAPE = 220
 BRIEF_EFFECT = 450
 
-_TAG_RE = re.compile(r"<[^<>]{1,60}>")   # <color=...>, <IconMap:...> і подібне
+_TAG_RE = re.compile(r"<[^<>]{1,60}>")  # <color=...>, <IconMap:...> і подібне
 _WS_RE = re.compile(r"\s+")
 
 
@@ -138,11 +139,20 @@ def _extract_game_recommend(fairy: Any) -> dict | None:
     if not isinstance(fairy, dict):
         return None
     rec: dict[str, Any] = {}
-    for src, dst in (("slot4", "disc_4pc_id"), ("slot2", "disc_2pc_id"), ("slot_sub", "disc_alt_id")):
+    for src, dst in (
+        ("slot4", "disc_4pc_id"),
+        ("slot2", "disc_2pc_id"),
+        ("slot_sub", "disc_alt_id"),
+    ):
         if fairy.get(src):
             rec[dst] = fairy[src]
     stats: dict[str, str] = {}
-    for src, dst in (("part4", "slot4"), ("part5", "slot5"), ("part6", "slot6"), ("part_sub", "substat")):
+    for src, dst in (
+        ("part4", "slot4"),
+        ("part5", "slot5"),
+        ("part6", "slot6"),
+        ("part_sub", "substat"),
+    ):
         part = fairy.get(src)
         name = part.get("name") if isinstance(part, dict) else None
         if name:
@@ -158,7 +168,8 @@ def _make_agent_fetcher(client: Any):
         raw = _sanitize_agent_raw(raw)
         detail = zzz_models.CharacterDetail(**raw)
         strategy = [
-            clean(s) for s in (raw.get("strategy") or [])
+            clean(s)
+            for s in (raw.get("strategy") or [])
             if isinstance(s, str) and clean(s) and not clean(s).isdigit()
         ]
         special = raw.get("special_element_type")
@@ -173,6 +184,7 @@ def _make_agent_fetcher(client: Any):
 
 
 # ---------------- трансформації запис-за-записом ----------------
+
 
 def agent_record(item: Any, payload: Any) -> dict:
     detail = getattr(payload, "detail", payload)
@@ -201,7 +213,10 @@ def agent_record(item: Any, payload: Any) -> dict:
             skills[prop_name(skill_type)] = moves
 
     mindscapes = {
-        str(cinema.level): {"name": cinema.name, "brief": brief(cinema.description, BRIEF_MINDSCAPE)}
+        str(cinema.level): {
+            "name": cinema.name,
+            "brief": brief(cinema.description, BRIEF_MINDSCAPE),
+        }
         for cinema in (detail.mindscape_cinemas or [])
     }
 
@@ -241,7 +256,10 @@ def wengine_record(item: Any, detail: Any) -> dict:
     def stat(prop: Any) -> dict | None:
         if prop is None:
             return None
-        return {"stat": clean(getattr(prop, "name", "")) or None, "value": getattr(prop, "value", None)}
+        return {
+            "stat": clean(getattr(prop, "name", "")) or None,
+            "value": getattr(prop, "value", None),
+        }
 
     return {
         "name": detail.name,
@@ -284,7 +302,9 @@ def _parse_activation(text: str | None) -> dict | None:
         return None
     match = _COND_FROM_RE.search(cleaned) or _COND_TYPE_RE.search(cleaned)
     if match:
-        subject = re.sub(r"\s*attributes?$", "", match.group(2).strip(), flags=re.IGNORECASE).strip()
+        subject = re.sub(
+            r"\s*attributes?$", "", match.group(2).strip(), flags=re.IGNORECASE
+        ).strip()
         return {"count": int(match.group(1)), "subject": subject, "text": cleaned[:200]}
     lowered = cleaned.lower()
     if "at least" in lowered and "squad" in lowered:
@@ -318,7 +338,10 @@ def bangboo_record(item: Any, detail: Any) -> dict:
 
 # ---------------- конвеєр ----------------
 
-async def _fetch_details(items, fetch_fn, make_record, *, fresh: bool, label: str) -> dict[str, dict]:
+
+async def _fetch_details(
+    items, fetch_fn, make_record, *, fresh: bool, label: str
+) -> dict[str, dict]:
     semaphore = asyncio.Semaphore(CONCURRENCY)
     total = len(items)
     result: dict[str, dict] = {}
@@ -364,10 +387,15 @@ def _validate_divergences(overlay: dict, label: str) -> None:
             topic = item.get("topic")
             if topic and topic not in _DIVERGENCE_TOPICS:
                 log.warning(
-                    "%s: невідомий topic «%s» (відомі: %s)", where, topic, ", ".join(sorted(_DIVERGENCE_TOPICS))
+                    "%s: невідомий topic «%s» (відомі: %s)",
+                    where,
+                    topic,
+                    ", ".join(sorted(_DIVERGENCE_TOPICS)),
                 )
             if not item.get("patch"):
-                log.warning("%s: нема поля patch — не зможу попереджати про застарілість звірки", where)
+                log.warning(
+                    "%s: нема поля patch — не зможу попереджати про застарілість звірки", where
+                )
 
 
 def merge_curated(db: dict[str, dict], curated_path: Path, label: str) -> None:
@@ -394,10 +422,16 @@ async def build(out: Path, lang: Language, *, use_live: bool, fresh: bool) -> No
         version = manifest.zzz.live_version if use_live else manifest.zzz.latest_version
         log.info("Версія даних ZZZ: %s (%s)", version, "live" if use_live else "latest/beta")
 
-        agents_list = [c for c in await _fetch_list_raw(client, "character", fresh=fresh) if c.rarity]
-        wengines_list = [w for w in await _fetch_list_raw(client, "weapon", fresh=fresh) if w.rarity]
+        agents_list = [
+            c for c in await _fetch_list_raw(client, "character", fresh=fresh) if c.rarity
+        ]
+        wengines_list = [
+            w for w in await _fetch_list_raw(client, "weapon", fresh=fresh) if w.rarity
+        ]
         discs_list = await _fetch_list_raw(client, "equipment", fresh=fresh)
-        bangboo_list = [b for b in await _fetch_list_raw(client, "bangboo", fresh=fresh) if b.rarity]
+        bangboo_list = [
+            b for b in await _fetch_list_raw(client, "bangboo", fresh=fresh) if b.rarity
+        ]
 
         agents = await _fetch_details(
             agents_list, _make_agent_fetcher(client), agent_record, fresh=fresh, label="agents"
@@ -427,7 +461,12 @@ async def build(out: Path, lang: Language, *, use_live: bool, fresh: bool) -> No
                 recommend[name_key] = disc["name"]
 
     curated_dir = out / "curated"
-    for name, db in (("agents", agents), ("wengines", wengines), ("discs", discs), ("bangboo", bangboo)):
+    for name, db in (
+        ("agents", agents),
+        ("wengines", wengines),
+        ("discs", discs),
+        ("bangboo", bangboo),
+    ):
         merge_curated(db, curated_dir / f"{name}.json", name)
         write_json(out / f"{name}.json", db)
 
@@ -454,11 +493,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Генератор JSON-БД для ZZZ-режиму бота")
     parser.add_argument("--out", default="data/zzz", help="куди класти БД (типово data/zzz)")
     parser.add_argument("--lang", default="en", help="мова описів: en/zh/ko/ja (типово en)")
-    parser.add_argument("--beta", action="store_true", help="брати latest-версію даних (включно з бетою)")
+    parser.add_argument(
+        "--beta", action="store_true", help="брати latest-версію даних (включно з бетою)"
+    )
     parser.add_argument("--fresh", action="store_true", help="ігнорувати локальний кеш обгортки")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
+    )
     try:
         lang = Language(args.lang)
     except ValueError:

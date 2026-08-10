@@ -4,6 +4,7 @@
 (bot_has_permissions) та ієрархію ролей (_blocked). Команди приховані
 від учасників без відповідних прав (default_permissions).
 """
+
 from __future__ import annotations
 
 import datetime
@@ -45,10 +46,14 @@ class ModerationCog(commands.Cog, name="Модерація"):
     @app_commands.checks.has_permissions(manage_messages=True)
     @app_commands.checks.bot_has_permissions(manage_messages=True, read_message_history=True)
     @app_commands.guild_only()
-    async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100]):
+    async def purge(
+        self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100]
+    ):
         await interaction.response.defer(ephemeral=True)
         if not hasattr(interaction.channel, "purge"):
-            await interaction.followup.send("⛔ У цьому типі каналу видаляти не можу.", ephemeral=True)
+            await interaction.followup.send(
+                "⛔ У цьому типі каналу видаляти не можу.", ephemeral=True
+            )
             return
         try:
             deleted = await interaction.channel.purge(limit=amount)
@@ -64,7 +69,9 @@ class ModerationCog(commands.Cog, name="Модерація"):
     # ---------------- timeout ----------------
 
     @app_commands.command(name="timeout", description="Відправити учасника в тайм-аут")
-    @app_commands.describe(member="Кого", duration="Тривалість: 10m, 2h, 1d (макс. 28 днів)", reason="Причина")
+    @app_commands.describe(
+        member="Кого", duration="Тривалість: 10m, 2h, 1d (макс. 28 днів)", reason="Причина"
+    )
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.checks.has_permissions(moderate_members=True)
     @app_commands.checks.bot_has_permissions(moderate_members=True)
@@ -103,7 +110,9 @@ class ModerationCog(commands.Cog, name="Модерація"):
     @app_commands.guild_only()
     async def untimeout(self, interaction: discord.Interaction, member: discord.Member):
         if not member.is_timed_out():
-            await interaction.response.send_message("Цей учасник і так не в тайм-ауті.", ephemeral=True)
+            await interaction.response.send_message(
+                "Цей учасник і так не в тайм-ауті.", ephemeral=True
+            )
             return
         await member.timeout(None, reason=f"Знято модератором {interaction.user}")
         await interaction.response.send_message(f"🔊 Тайм-аут із {member.mention} знято.")
@@ -124,7 +133,9 @@ class ModerationCog(commands.Cog, name="Модерація"):
             await interaction.response.send_message(f"⛔ {error}", ephemeral=True)
             return
         await member.kick(reason=f"{interaction.user}: {reason or '—'}")
-        await interaction.response.send_message(f"👢 **{member.display_name}** вигнано. Причина: {reason or '—'}")
+        await interaction.response.send_message(
+            f"👢 **{member.display_name}** вигнано. Причина: {reason or '—'}"
+        )
 
     @app_commands.command(name="ban", description="Забанити учасника")
     @app_commands.describe(
@@ -151,7 +162,9 @@ class ModerationCog(commands.Cog, name="Модерація"):
             reason=f"{interaction.user}: {reason or '—'}",
             delete_message_seconds=delete_days * 86400,
         )
-        await interaction.response.send_message(f"🔨 **{member.display_name}** забанено. Причина: {reason or '—'}")
+        await interaction.response.send_message(
+            f"🔨 **{member.display_name}** забанено. Причина: {reason or '—'}"
+        )
 
     @app_commands.command(name="unban", description="Розбанити користувача за ID")
     @app_commands.describe(user_id="Числовий ID користувача")
@@ -162,12 +175,16 @@ class ModerationCog(commands.Cog, name="Модерація"):
     async def unban(self, interaction: discord.Interaction, user_id: str):
         user_id = user_id.strip()
         if not user_id.isdigit():
-            await interaction.response.send_message("⛔ Потрібен числовий ID користувача.", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ Потрібен числовий ID користувача.", ephemeral=True
+            )
             return
         try:
             await interaction.guild.unban(discord.Object(id=int(user_id)))
         except discord.NotFound:
-            await interaction.response.send_message("У бан-списку такого користувача немає.", ephemeral=True)
+            await interaction.response.send_message(
+                "У бан-списку такого користувача немає.", ephemeral=True
+            )
             return
         await interaction.response.send_message(f"✅ Розбанено <@{user_id}>.")
 
@@ -180,9 +197,13 @@ class ModerationCog(commands.Cog, name="Модерація"):
     @app_commands.guild_only()
     async def warn(self, interaction: discord.Interaction, member: discord.Member, reason: str):
         if member.bot:
-            await interaction.response.send_message("⛔ Ботам попередження не видаю.", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ Ботам попередження не видаю.", ephemeral=True
+            )
             return
-        count = await self.bot.db.add_warn(interaction.guild_id, member.id, interaction.user.id, reason)
+        count = await self.bot.db.add_warn(
+            interaction.guild_id, member.id, interaction.user.id, reason
+        )
         dm_note = ""
         try:
             await member.send(
@@ -234,13 +255,19 @@ class ModerationCog(commands.Cog, name="Модерація"):
     @app_commands.checks.has_permissions(manage_channels=True)
     @app_commands.checks.bot_has_permissions(manage_channels=True)
     @app_commands.guild_only()
-    async def slowmode(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 21600]):
+    async def slowmode(
+        self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 21600]
+    ):
         if not hasattr(interaction.channel, "edit"):
-            await interaction.response.send_message("⛔ Для цього типу каналу недоступно.", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ Для цього типу каналу недоступно.", ephemeral=True
+            )
             return
         await interaction.channel.edit(slowmode_delay=seconds)
         if seconds:
-            await interaction.response.send_message(f"🐌 Слоумод: одне повідомлення раз на {seconds} с.")
+            await interaction.response.send_message(
+                f"🐌 Слоумод: одне повідомлення раз на {seconds} с."
+            )
         else:
             await interaction.response.send_message("🚀 Слоумод вимкнено.")
 

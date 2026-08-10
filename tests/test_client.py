@@ -4,6 +4,7 @@
 asyncio.sleep — no-op (щоб бекоф не гальмував тести). Час у брейкері беремо з
 керованого монотонного годинника, тож cooldown детермінований.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -63,9 +64,7 @@ def _make_error(cls):
 
 def _install(client: LongcatClient, script) -> FakeCreate:
     fake = FakeCreate(script)
-    client._client = SimpleNamespace(
-        chat=SimpleNamespace(completions=SimpleNamespace(create=fake))
-    )
+    client._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=fake)))
     return fake
 
 
@@ -78,6 +77,7 @@ def _no_sleep(monkeypatch):
 
 
 # ---------------- базова поведінка (характеризація) ----------------
+
 
 async def test_chat_success_returns_result():
     client = LongcatClient(_cfg())
@@ -123,6 +123,7 @@ async def test_chat_exhausts_all_attempts_raises():
 
 
 # ---------------- circuit breaker ----------------
+
 
 class Clock:
     def __init__(self, t=1000.0):
@@ -204,6 +205,7 @@ async def test_breaker_success_resets_counter(monkeypatch):
 
     # після скидання ще один повний збій НЕ відкриває брейкер одразу
     from openai import APITimeoutError as T
+
     _install(client, [T] * client_mod.MAX_ATTEMPTS + [_response("знову ок")])
     with pytest.raises(LLMError):
         await client.chat([{"role": "user", "content": "hi"}])

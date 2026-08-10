@@ -6,6 +6,7 @@ hakushin застаблено в conftest.py, тож import build_db не тяг
 Record-трансформери приймають будь-які об'єкти з потрібними атрибутами —
 використовуємо SimpleNamespace замість pydantic-моделей обгортки.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ from types import SimpleNamespace
 from zzz import build_db as bd
 
 # ---------------- clean / brief / prop_name ----------------
+
 
 def test_clean_strips_tags_and_whitespace():
     assert bd.clean("<color=#fff>Привіт</color>   світ") == "Привіт світ"
@@ -60,8 +62,11 @@ def test_prop_name_fallback_str():
 
 # ---------------- _lite (сирий список) ----------------
 
+
 def test_lite_maps_rank_to_rarity():
-    obj = bd._lite("1091", {"code": "Miyabi", "rank": 4, "names": {"en": "Miyabi"}, "zh": {"name": "雅"}})
+    obj = bd._lite(
+        "1091", {"code": "Miyabi", "rank": 4, "names": {"en": "Miyabi"}, "zh": {"name": "雅"}}
+    )
     assert obj.rarity == "S"
     assert obj.id == 1091
     assert obj.names.get("zh") == "雅"
@@ -78,6 +83,7 @@ def test_lite_fallback_name():
 
 
 # ---------------- _sanitize_agent_raw ----------------
+
 
 def test_sanitize_fills_missing_partner_fields():
     raw = {"partner_info": {"full_name": "Hoshimi"}}
@@ -103,11 +109,16 @@ def test_sanitize_no_partner_info():
 
 # ---------------- _extract_game_recommend ----------------
 
+
 def test_extract_game_recommend_full():
     fairy = {
-        "slot4": "31000", "slot2": "32000", "slot_sub": "33000",
-        "part4": {"name": "CRIT DMG"}, "part5": {"name": "ATK%"},
-        "part6": {"name": "ATK%"}, "part_sub": {"name": "CRIT Rate"},
+        "slot4": "31000",
+        "slot2": "32000",
+        "slot_sub": "33000",
+        "part4": {"name": "CRIT DMG"},
+        "part5": {"name": "ATK%"},
+        "part6": {"name": "ATK%"},
+        "part_sub": {"name": "CRIT Rate"},
     }
     rec = bd._extract_game_recommend(fairy)
     assert rec["disc_4pc_id"] == "31000"
@@ -126,6 +137,7 @@ def test_extract_game_recommend_non_dict():
 
 
 # ---------------- _parse_activation ----------------
+
 
 def test_parse_activation_type_pattern():
     parsed = bd._parse_activation("When there are at least 2 Ice characters in your squad")
@@ -159,6 +171,7 @@ def test_parse_activation_none_for_irrelevant():
 
 # ---------------- record-трансформери ----------------
 
+
 def _agent_payload():
     detail = SimpleNamespace(
         name="Miyabi",
@@ -169,17 +182,27 @@ def _agent_payload():
         attack_type=SimpleNamespace(name="Slash"),
         faction=SimpleNamespace(name="Section 6"),
         stats={"HP": 8000, "ATK": 900.0, "tags": "junk", "zero": 0},
-        passive=SimpleNamespace(levels={
-            1: SimpleNamespace(names=["Core Passive"], descriptions=["морозить <color=#f>ворогів</color>"])
-        }),
+        passive=SimpleNamespace(
+            levels={
+                1: SimpleNamespace(
+                    names=["Core Passive"], descriptions=["морозить <color=#f>ворогів</color>"]
+                )
+            }
+        ),
         skills={
-            "Basic": SimpleNamespace(descriptions=[
-                SimpleNamespace(name="Удар", description="базова атака"),
-            ]),
+            "Basic": SimpleNamespace(
+                descriptions=[
+                    SimpleNamespace(name="Удар", description="базова атака"),
+                ]
+            ),
         },
         mindscape_cinemas=[SimpleNamespace(level=1, name="M1", description="підсилення")],
     )
-    extras = {"special_element": "Frost", "strategy": ["агресивний"], "game_recommend": {"disc_4pc_id": "31000"}}
+    extras = {
+        "special_element": "Frost",
+        "strategy": ["агресивний"],
+        "game_recommend": {"disc_4pc_id": "31000"},
+    }
     return SimpleNamespace(detail=detail, extras=extras)
 
 
@@ -218,12 +241,15 @@ def test_agent_record_core_skill():
 def test_wengine_record():
     item = SimpleNamespace(names={"zh": "钢铁"})
     detail = SimpleNamespace(
-        name="Steel Cushion", rarity="S",
+        name="Steel Cushion",
+        rarity="S",
         type=SimpleNamespace(name="Attack"),
         base_property=SimpleNamespace(name="ATK", value=700),
         rand_property=SimpleNamespace(name="CRIT", value=24),
-        refinements={"1": SimpleNamespace(name="Cushion", description="ефект R1"),
-                     "5": SimpleNamespace(name="Cushion", description="ефект R5")},
+        refinements={
+            "1": SimpleNamespace(name="Cushion", description="ефект R1"),
+            "5": SimpleNamespace(name="Cushion", description="ефект R5"),
+        },
     )
     record = bd.wengine_record(item, detail)
     assert record["name"] == "Steel Cushion"
@@ -235,7 +261,9 @@ def test_wengine_record():
 def test_disc_record():
     item = SimpleNamespace(chs_info=SimpleNamespace(name="啄木鸟"))
     detail = SimpleNamespace(
-        name="Woodpecker", two_piece_effect="CRIT +8%", four_piece_effect="стак після криту",
+        name="Woodpecker",
+        two_piece_effect="CRIT +8%",
+        four_piece_effect="стак після криту",
     )
     record = bd.disc_record(item, detail)
     assert record["name"] == "Woodpecker"
@@ -246,11 +274,17 @@ def test_disc_record():
 def test_bangboo_record_with_activation():
     item = SimpleNamespace(names={"zh": "阿米"})
     detail = SimpleNamespace(
-        name="Amillion", rarity="S", description="універсал",
-        skills={"1": {2: SimpleNamespace(
-            name="Boom",
-            description="When there are at least 2 Ice characters in your squad, boom.",
-        )}},
+        name="Amillion",
+        rarity="S",
+        description="універсал",
+        skills={
+            "1": {
+                2: SimpleNamespace(
+                    name="Boom",
+                    description="When there are at least 2 Ice characters in your squad, boom.",
+                )
+            }
+        },
     )
     record = bd.bangboo_record(item, detail)
     assert record["name"] == "Amillion"
@@ -259,6 +293,7 @@ def test_bangboo_record_with_activation():
 
 
 # ---------------- merge_curated + валідація ----------------
+
 
 def test_merge_curated_attaches(tmp_path):
     db = {"1091": {"name": "Miyabi"}}

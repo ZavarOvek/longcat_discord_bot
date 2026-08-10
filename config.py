@@ -1,4 +1,5 @@
 """Завантаження конфігурації з .env з валідацією обов'язкових полів."""
+
 from __future__ import annotations
 
 import os
@@ -87,7 +88,9 @@ def load_config() -> Config:
     cfg = Config(
         discord_token=os.getenv("DISCORD_TOKEN", "").strip(),
         longcat_api_key=os.getenv("LONGCAT_API_KEY", "").strip(),
-        longcat_base_url=os.getenv("LONGCAT_BASE_URL", "https://api.longcat.chat/openai/v1").strip(),
+        longcat_base_url=os.getenv(
+            "LONGCAT_BASE_URL", "https://api.longcat.chat/openai/v1"
+        ).strip(),
         longcat_model=os.getenv("LONGCAT_MODEL", "LongCat-2.0").strip(),
         max_tokens=_int(os.getenv("LONGCAT_MAX_TOKENS"), 2048),
         temperature=_float(os.getenv("LONGCAT_TEMPERATURE"), 0.7),
@@ -112,7 +115,10 @@ def load_config() -> Config:
 
     missing = [
         name
-        for name, value in (("DISCORD_TOKEN", cfg.discord_token), ("LONGCAT_API_KEY", cfg.longcat_api_key))
+        for name, value in (
+            ("DISCORD_TOKEN", cfg.discord_token),
+            ("LONGCAT_API_KEY", cfg.longcat_api_key),
+        )
         if not value
     ]
     if missing:

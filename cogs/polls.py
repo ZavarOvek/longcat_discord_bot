@@ -1,4 +1,5 @@
 """Нативні опитування Discord (/poll) — голоси й результати рахує сам Discord."""
+
 from __future__ import annotations
 
 import datetime
@@ -28,7 +29,9 @@ class PollsCog(commands.Cog, name="Опитування"):
         multiple: bool = False,
     ):
         if interaction.channel is None:
-            await interaction.response.send_message("⛔ Тут немає каналу для опитування.", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ Тут немає каналу для опитування.", ephemeral=True
+            )
             return
 
         separator = ";" if ";" in options else ","

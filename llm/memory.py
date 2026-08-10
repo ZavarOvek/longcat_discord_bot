@@ -4,6 +4,7 @@
 тому реальний обмежувач — денна квота. CHAT_HISTORY_TOKEN_LIMIT у .env керує
 тим, скільки історії їде в кожен запит.
 """
+
 from __future__ import annotations
 
 import datetime

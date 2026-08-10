@@ -1,4 +1,5 @@
 """Тести utils: split_message, fix_tables, parse_duration, looks_ukrainian, roll_dice."""
+
 from __future__ import annotations
 
 import random
@@ -14,6 +15,7 @@ from utils import (
 )
 
 # ---------------- split_message ----------------
+
 
 def test_split_short_text_single_chunk():
     assert split_message("привіт") == ["привіт"]
@@ -64,6 +66,7 @@ def test_split_reopens_fence_with_language():
 
 # ---------------- parse_duration ----------------
 
+
 @pytest.mark.parametrize(
     "raw, expected",
     [
@@ -75,7 +78,7 @@ def test_split_reopens_fence_with_language():
         ("10хв", 600),
         ("30с", 30),
         ("1год", 3600),
-        ("15", 15 * 60),        # голе число = хвилини
+        ("15", 15 * 60),  # голе число = хвилини
         ("2h 30m", 9000),
     ],
 )
@@ -95,13 +98,9 @@ def test_parse_duration_case_insensitive():
 
 # ---------------- fix_tables ----------------
 
+
 def test_fix_tables_converts_pipe_table():
-    table = (
-        "| Агент | Елемент |\n"
-        "|-------|---------|\n"
-        "| Miyabi | Frost |\n"
-        "| Yanagi | Electric |\n"
-    )
+    table = "| Агент | Елемент |\n|-------|---------|\n| Miyabi | Frost |\n| Yanagi | Electric |\n"
     out = fix_tables(table)
     assert "|" not in out
     assert "**Miyabi**" in out
@@ -135,6 +134,7 @@ def test_fix_tables_no_table_is_identity():
 
 # ---------------- looks_ukrainian ----------------
 
+
 def test_looks_ukrainian_true_on_ukrainian():
     text = "Їжак їздив містом, і їй було цікаво, чи є ще їстівне."
     assert looks_ukrainian(text) is True
@@ -161,6 +161,7 @@ def test_looks_ukrainian_custom_threshold():
 
 
 # ---------------- roll_dice ----------------
+
 
 def test_roll_dice_basic():
     random.seed(1)

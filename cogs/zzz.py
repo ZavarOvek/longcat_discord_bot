@@ -4,6 +4,7 @@
 LLM додаються три інструменти і промпт-доважок з F2P-правилами; у звичайних
 каналах нічого з цього не витрачає токени.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,7 +76,9 @@ class ZZZCog(commands.Cog, name="ZZZ"):
             await self.bot.db.set_channel_mode(interaction.channel_id, None)
             await interaction.response.send_message("💬 Канал у звичайному режимі чату.")
 
-    @app_commands.command(name="zzz_reload", description="Перечитати ZZZ-бази з диска (після перегенерації)")
+    @app_commands.command(
+        name="zzz_reload", description="Перечитати ZZZ-бази з диска (після перегенерації)"
+    )
     async def zzz_reload(self, interaction: discord.Interaction):
         error = self._load_db()
         if error:

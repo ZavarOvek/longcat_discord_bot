@@ -6,6 +6,7 @@
 - warns        — попередження модерації
 - levels       — XP за активність
 """
+
 from __future__ import annotations
 
 import time
@@ -89,7 +90,9 @@ class Database:
 
     # ---------------- Історія чату ----------------
 
-    async def add_chat_message(self, channel_id: int, guild_id: int | None, role: str, content: str) -> None:
+    async def add_chat_message(
+        self, channel_id: int, guild_id: int | None, role: str, content: str
+    ) -> None:
         await self._db.execute(
             "INSERT INTO chat_history(channel_id, guild_id, role, content, created_at) VALUES(?,?,?,?,?)",
             (channel_id, guild_id, role, content, int(time.time())),
@@ -106,7 +109,9 @@ class Database:
         return list(reversed(rows))
 
     async def clear_chat_history(self, channel_id: int) -> int:
-        cursor = await self._db.execute("DELETE FROM chat_history WHERE channel_id=?", (channel_id,))
+        cursor = await self._db.execute(
+            "DELETE FROM chat_history WHERE channel_id=?", (channel_id,)
+        )
         await self._db.commit()
         return cursor.rowcount
 
@@ -150,7 +155,9 @@ class Database:
 
     # ---------------- Попередження ----------------
 
-    async def add_warn(self, guild_id: int, user_id: int, moderator_id: int, reason: str | None) -> int:
+    async def add_warn(
+        self, guild_id: int, user_id: int, moderator_id: int, reason: str | None
+    ) -> int:
         """Додає попередження і повертає їх нову кількість у користувача."""
         await self._db.execute(
             "INSERT INTO warns(guild_id, user_id, moderator_id, reason, created_at) VALUES(?,?,?,?,?)",

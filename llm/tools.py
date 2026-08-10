@@ -8,6 +8,7 @@
   могла виправитися, а не валила весь запит.
 - результат обрізається до MAX_RESULT_CHARS, щоб не палити квоту.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,12 +41,14 @@ _MENTION_RE = re.compile(r"^<@!?(\d+)>$")
 @dataclass(slots=True)
 class ToolContext:
     """Все, що потрібно інструментам: бот, повідомлення-тригер і БД."""
+
     bot: discord.Client
     message: discord.Message
     db: Database
 
 
 # ---------------- Реалізації інструментів ----------------
+
 
 async def tool_get_current_time(tctx: ToolContext) -> str:
     now = datetime.datetime.now().astimezone()
@@ -94,9 +97,11 @@ async def tool_get_user_info(tctx: ToolContext, user: str) -> str:
     if member is None:
         needle = query.lstrip("@").lower()
         member = discord.utils.find(
-            lambda m: m.display_name.lower() == needle
-            or m.name.lower() == needle
-            or needle in m.display_name.lower(),
+            lambda m: (
+                m.display_name.lower() == needle
+                or m.name.lower() == needle
+                or needle in m.display_name.lower()
+            ),
             guild.members,
         )
 
@@ -308,7 +313,11 @@ BASE_TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "Скільки повідомлень (1–50)", "default": 20}
+                    "limit": {
+                        "type": "integer",
+                        "description": "Скільки повідомлень (1–50)",
+                        "default": 20,
+                    }
                 },
                 "required": [],
             },
@@ -343,8 +352,16 @@ BASE_TOOL_SCHEMAS = [
                         "items": {"type": "string"},
                         "description": "2–10 варіантів (до 55 символів кожен)",
                     },
-                    "duration_hours": {"type": "integer", "description": "Тривалість у годинах (1–768)", "default": 24},
-                    "multiple": {"type": "boolean", "description": "Дозволити кілька відповідей", "default": False},
+                    "duration_hours": {
+                        "type": "integer",
+                        "description": "Тривалість у годинах (1–768)",
+                        "default": 24,
+                    },
+                    "multiple": {
+                        "type": "boolean",
+                        "description": "Дозволити кілька відповідей",
+                        "default": False,
+                    },
                 },
                 "required": ["question", "options"],
             },
@@ -358,7 +375,11 @@ BASE_TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "formula": {"type": "string", "description": "Формула, напр. 1d20 або 2d6+3", "default": "1d20"}
+                    "formula": {
+                        "type": "string",
+                        "description": "Формула, напр. 1d20 або 2d6+3",
+                        "default": "1d20",
+                    }
                 },
                 "required": [],
             },
@@ -403,7 +424,11 @@ WEB_TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Пошуковий запит"},
-                    "max_results": {"type": "integer", "description": "1–8, типово 5", "default": 5},
+                    "max_results": {
+                        "type": "integer",
+                        "description": "1–8, типово 5",
+                        "default": 5,
+                    },
                 },
                 "required": ["query"],
             },
@@ -532,7 +557,9 @@ async def run_agent(
 
         tool_calls = getattr(message, "tool_calls", None) or []
         if not tool_calls:
-            stats.text = (message.content or "").strip() or "🤔 (модель повернула порожню відповідь)"
+            stats.text = (
+                message.content or ""
+            ).strip() or "🤔 (модель повернула порожню відповідь)"
             await _sanitize_markup(stats, llm, messages, thinking)
             return stats
 

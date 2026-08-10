@@ -1,4 +1,5 @@
 """Утиліти: ping, serverinfo, userinfo, avatar, help."""
+
 from __future__ import annotations
 
 import time
@@ -32,16 +33,22 @@ class UtilityCog(commands.Cog, name="Утиліти"):
         embed.add_field(name="Учасників", value=str(guild.member_count))
         embed.add_field(name="Власник", value=f"<@{guild.owner_id}>")
         embed.add_field(name="Створено", value=f"<t:{int(guild.created_at.timestamp())}:D>")
-        embed.add_field(name="Канали", value=f"💬 {len(guild.text_channels)} · 🔊 {len(guild.voice_channels)}")
+        embed.add_field(
+            name="Канали", value=f"💬 {len(guild.text_channels)} · 🔊 {len(guild.voice_channels)}"
+        )
         embed.add_field(name="Ролей", value=str(len(guild.roles)))
-        embed.add_field(name="Бусти", value=f"{guild.premium_subscription_count} (рівень {guild.premium_tier})")
+        embed.add_field(
+            name="Бусти", value=f"{guild.premium_subscription_count} (рівень {guild.premium_tier})"
+        )
         embed.set_footer(text=f"ID: {guild.id}")
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="userinfo", description="Інформація про користувача")
     @app_commands.describe(member="Про кого (порожньо = про тебе)")
     @app_commands.guild_only()
-    async def userinfo(self, interaction: discord.Interaction, member: discord.Member | None = None):
+    async def userinfo(
+        self, interaction: discord.Interaction, member: discord.Member | None = None
+    ):
         member = member or interaction.user
         color = member.color if member.color.value else discord.Color.blurple()
         embed = discord.Embed(title=member.display_name, color=color)
@@ -53,7 +60,9 @@ class UtilityCog(commands.Cog, name="Утиліти"):
         if member.joined_at:
             embed.add_field(name="Приєднався", value=f"<t:{int(member.joined_at.timestamp())}:D>")
         roles = [role.mention for role in reversed(member.roles[1:])][:10]
-        embed.add_field(name=f"Ролі ({len(member.roles) - 1})", value=" ".join(roles) or "—", inline=False)
+        embed.add_field(
+            name=f"Ролі ({len(member.roles) - 1})", value=" ".join(roles) or "—", inline=False
+        )
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="avatar", description="Аватар користувача")
@@ -76,13 +85,17 @@ class UtilityCog(commands.Cog, name="Утиліти"):
             ),
             inline=False,
         )
-        embed.add_field(name="🛠 Утиліти", value="`/ping` `/serverinfo` `/userinfo` `/avatar`", inline=False)
+        embed.add_field(
+            name="🛠 Утиліти", value="`/ping` `/serverinfo` `/userinfo` `/avatar`", inline=False
+        )
         embed.add_field(
             name="🛡 Модерація",
             value="`/purge` `/timeout` `/untimeout` `/kick` `/ban` `/unban` `/warn` `/warns` `/clearwarns` `/slowmode`",
             inline=False,
         )
-        embed.add_field(name="🎲 Розваги", value="`/roll` `/coinflip` `/8ball` `/choose`", inline=False)
+        embed.add_field(
+            name="🎲 Розваги", value="`/roll` `/coinflip` `/8ball` `/choose`", inline=False
+        )
         embed.add_field(
             name="📊 Опитування й нагадування",
             value="`/poll` · `/remind` `/reminders` `/reminder_delete`",
@@ -94,7 +107,11 @@ class UtilityCog(commands.Cog, name="Утиліти"):
             inline=False,
         )
         if self.bot.config.levels_enabled:
-            embed.add_field(name="🏆 Рівні", value="`/rank` `/leaderboard` — XP за активність у чаті", inline=False)
+            embed.add_field(
+                name="🏆 Рівні",
+                value="`/rank` `/leaderboard` — XP за активність у чаті",
+                inline=False,
+            )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 

@@ -6,6 +6,7 @@
 - опційний параметр thinking (LongCat-специфіка), передається через extra_body
 - логування usage-токенів у лог — зручно стежити за квотою
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -77,7 +78,8 @@ class LongcatClient:
             self._breaker_open_until = time.monotonic() + BREAKER_COOLDOWN
             log.warning(
                 "Circuit breaker розімкнено: %d повних збоїв поспіль, пауза %.0f с",
-                self._breaker_failures, BREAKER_COOLDOWN,
+                self._breaker_failures,
+                BREAKER_COOLDOWN,
             )
 
     async def chat(
@@ -133,11 +135,20 @@ class LongcatClient:
                     self._breaker_record_success()
                     return ChatResult(response.choices[0].message, prompt_tokens, completion_tokens)
                 except RateLimitError:
-                    log.warning("LongCat 429 (rate limit), спроба %d/%d — чекаю %.0f с",
-                                attempt, MAX_ATTEMPTS, delay)
+                    log.warning(
+                        "LongCat 429 (rate limit), спроба %d/%d — чекаю %.0f с",
+                        attempt,
+                        MAX_ATTEMPTS,
+                        delay,
+                    )
                 except (APITimeoutError, APIConnectionError, InternalServerError) as exc:
-                    log.warning("LongCat %s, спроба %d/%d — чекаю %.0f с",
-                                type(exc).__name__, attempt, MAX_ATTEMPTS, delay)
+                    log.warning(
+                        "LongCat %s, спроба %d/%d — чекаю %.0f с",
+                        type(exc).__name__,
+                        attempt,
+                        MAX_ATTEMPTS,
+                        delay,
+                    )
                 except APIStatusError as exc:
                     # 4xx, які ретраїти немає сенсу (невірний ключ, поганий запит тощо)
                     body = getattr(exc, "message", None) or str(exc)
@@ -148,4 +159,6 @@ class LongcatClient:
                     delay = min(delay * 2, 45)
 
         self._breaker_record_failure()
-        raise LLMError("LongCat недоступний після кількох спроб (rate limit або мережа). Спробуй пізніше.")
+        raise LLMError(
+            "LongCat недоступний після кількох спроб (rate limit або мережа). Спробуй пізніше."
+        )
