@@ -220,7 +220,7 @@ def _bot(db, cfg):
 
 def _message(bot, content="Привіт", channel_id=42):
     channel = SimpleNamespace(id=channel_id, name="general")
-    guild = SimpleNamespace(id=7, name="Хата")
+    guild = SimpleNamespace(id=7, name="Test Guild")
     return SimpleNamespace(
         content=content,
         channel=channel,
