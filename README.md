@@ -35,7 +35,8 @@ agents, W-Engines, discs and bangboo with auto-injected context for
 entities mentioned in a message (Cyrillic transliteration, Ukrainian case
 inflection handled), a bangboo matcher for a given team composition, and
 warnings about CN/West version discrepancies and stale data. `/zzz_reload`
-reloads the database without restarting the bot.
+reloads the database without restarting the bot. `/mode` and `/zzz_reload`
+work on servers only and are available to administrators.
 
 Plus a classic set of server commands: moderation (`/purge` `/timeout`
 `/kick` `/ban` `/warn` and others), persistent reminders (`/remind`
@@ -100,8 +101,10 @@ comma-separated.
 ## How the chat works
 
 - **Triggers:** @mentioning the bot, replying to its message, or any
-  message in DMs. `/reset` clears a channel's memory, `/context` shows how
-  much of it is in use.
+  message in DMs. `/reset` (or the 🧹 button) clears a channel's memory,
+  `/context` shows how much of it is in use. On a server, clearing memory is
+  for administrators only, since the whole channel shares it; in DMs anyone
+  can clear their own conversation.
 - **Memory:** SQLite, kept separately per channel and per thread. Each
   request to the model includes the most recent messages within
   `CHAT_HISTORY_TOKEN_LIMIT` tokens, with the oldest dropped first.

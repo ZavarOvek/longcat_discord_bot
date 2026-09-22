@@ -43,6 +43,20 @@ USER_COOLDOWN_SWEEP_EVERY = 500
 ZZZ_THINKING_OVERRIDE = False
 
 
+MEMORY_ADMIN_ONLY = "⛔ Очистити пам'ять каналу на сервері може лише адміністратор."
+
+
+def can_manage_memory(user, guild) -> bool:
+    """Чи може користувач стерти пам'ять розмови.
+
+    У ЛС — так: це розмова лише з ним. На сервері пам'ять спільна для всіх
+    учасників каналу, тож лише адміністратор сервера."""
+    if guild is None:
+        return True
+    permissions = getattr(user, "guild_permissions", None)
+    return bool(permissions and permissions.administrator)
+
+
 def build_footer(result: AgentResult) -> str:
     """Компактний підпис: тули + токени + кількість викликів LLM."""
     parts: list[str] = []
@@ -124,6 +138,9 @@ class ReplyView(discord.ui.View):
 
     @discord.ui.button(emoji="🧹", label="Забути розмову", style=discord.ButtonStyle.secondary)
     async def forget_button(self, interaction: discord.Interaction, _button: discord.ui.Button):
+        if not can_manage_memory(interaction.user, interaction.guild):
+            await interaction.response.send_message(MEMORY_ADMIN_ONLY, ephemeral=True)
+            return
         # The View is a companion of ChatCog declared in this same module;
         # `_clear_history` is private to the module, not to the class.
         deleted = await self.cog._clear_history(  # noqa: SLF001
@@ -432,6 +449,11 @@ class ChatCog(commands.Cog, name="Чат"):
 
     @app_commands.command(name="reset", description="Очистити пам'ять розмови в цьому каналі")
     async def reset(self, interaction: discord.Interaction):
+        # Без default_permissions: у ЛС команда має лишатися доступною
+        # співрозмовнику, тож права перевіряються тут, а не прапорцем Discord.
+        if not can_manage_memory(interaction.user, interaction.guild):
+            await interaction.response.send_message(MEMORY_ADMIN_ONLY, ephemeral=True)
+            return
         deleted = await self._clear_history(interaction.channel_id, interaction.guild_id)
         await interaction.response.send_message(
             f"🧹 Пам'ять цього каналу очищено ({deleted} повідомлень)."

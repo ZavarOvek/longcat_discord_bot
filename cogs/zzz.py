@@ -56,6 +56,9 @@ class ZZZCog(commands.Cog, name="ZZZ"):
             app_commands.Choice(name="zzz", value="zzz"),
         ]
     )
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.guild_only()
     async def mode(self, interaction: discord.Interaction, mode: app_commands.Choice[str]):
         if mode.value == "zzz":
             if getattr(self.bot, "zzz_db", None) is None:
@@ -79,6 +82,9 @@ class ZZZCog(commands.Cog, name="ZZZ"):
     @app_commands.command(
         name="zzz_reload", description="Перечитати ZZZ-бази з диска (після перегенерації)"
     )
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.guild_only()
     async def zzz_reload(self, interaction: discord.Interaction):
         error = self._load_db()
         if error:
