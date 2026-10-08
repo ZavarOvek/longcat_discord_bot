@@ -24,7 +24,6 @@ from urllib.parse import quote
 import discord
 import httpx
 
-from persona import DEFAULT_PERSONA
 from utils import roll_dice
 
 if TYPE_CHECKING:
@@ -533,14 +532,17 @@ async def run_agent(
     max_iterations: int,
     schemas: list[dict] | None = None,
     thinking: bool | None = None,
-    markup_retry_note: str = DEFAULT_PERSONA.markup_retry_note,
+    *,
+    markup_retry_note: str,
 ) -> AgentResult:
     """Агентний цикл: модель ↔ інструменти, доки не буде текстової відповіді.
     schemas — набір схем для цього запиту (типово базові TOOL_SCHEMAS; режими
     можуть передавати розширений). На останній дозволеній ітерації інструменти
     не передаються — модель змушена відповісти текстом.
     thinking прокидається в кожен llm.chat (пер-режимний контроль мислення).
-    markup_retry_note — текст корекційного ретраю санітайзера (з персони).
+    markup_retry_note — текст корекційного ретраю санітайзера; обов'язковий,
+    щоб забутий виклик падав тут, а не підставляв вбудований текст замість
+    того, що власник задав у файлі персони.
     Повертає AgentResult з текстом і статистикою (тули, токени, виклики)."""
     schemas = schemas or TOOL_SCHEMAS
     stats = AgentResult()

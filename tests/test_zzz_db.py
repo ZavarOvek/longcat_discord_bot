@@ -14,6 +14,9 @@ import pytest
 from persona import DEFAULT_PERSONA
 from zzz.db import ZZZDatabase
 
+# auto_context вимагає шапку явно — у проді вона приходить із персони.
+HEADER = DEFAULT_PERSONA.zzz_reference_header
+
 AGENTS = {
     "1091": {
         "name": "Miyabi",
@@ -264,42 +267,42 @@ def test_overview_unknown_kind(zdb):
 
 
 def test_auto_context_finds_entity(zdb):
-    block, labels = zdb.auto_context("розкажи про Miyabi білд")
+    block, labels = zdb.auto_context("розкажи про Miyabi білд", header=HEADER)
     assert block is not None
     assert "Miyabi" in labels
-    assert DEFAULT_PERSONA.zzz_reference_header in block
+    assert HEADER in block
 
 
 def test_auto_context_cyrillic_translit(zdb):
     # «Міябі» -> miyabi через трансліт
-    _block, labels = zdb.auto_context("що там по Міябі")
+    _block, labels = zdb.auto_context("що там по Міябі", header=HEADER)
     assert labels and "Miyabi" in labels
 
 
 def test_auto_context_declension_ending(zdb):
     # відмінкове закінчення відкушується («Янагі» -> yanagi)
-    _block, labels = zdb.auto_context("білд на Янагі зараз")
+    _block, labels = zdb.auto_context("білд на Янагі зараз", header=HEADER)
     assert labels and "Yanagi" in labels
 
 
 def test_auto_context_zh_match(zdb):
-    _block, labels = zdb.auto_context("гайд по 星见雅 будь ласка")
+    _block, labels = zdb.auto_context("гайд по 星见雅 будь ласка", header=HEADER)
     assert labels and "Miyabi" in labels
 
 
 def test_auto_context_no_hits(zdb):
-    block, labels = zdb.auto_context("абсолютно нічого релевантного тут немає")
+    block, labels = zdb.auto_context("абсолютно нічого релевантного тут немає", header=HEADER)
     assert block is None
     assert labels == []
 
 
 def test_auto_context_limit(zdb):
-    _block, labels = zdb.auto_context("Miyabi Yanagi Pulchra разом", limit=2)
+    _block, labels = zdb.auto_context("Miyabi Yanagi Pulchra разом", limit=2, header=HEADER)
     assert len(labels) <= 2
 
 
 def test_auto_context_empty_text(zdb):
-    assert zdb.auto_context("") == (None, [])
+    assert zdb.auto_context("", header=HEADER) == (None, [])
 
 
 # ---------------- match_bangboo ----------------

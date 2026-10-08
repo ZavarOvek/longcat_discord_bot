@@ -398,7 +398,7 @@ class FakeZZZ:
         self._block = block
         self._labels = list(labels or [])
 
-    def auto_context(self, text, *, header=""):
+    def auto_context(self, text, *, header):
         return self._block, list(self._labels)
 
 

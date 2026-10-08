@@ -14,6 +14,10 @@ from llm import tools as tools_mod
 from llm.client import ChatResult
 from llm.tools import AgentResult, execute_tool, run_agent
 
+# run_agent вимагає текст ретраю санітайзера явно (у проді він приходить із
+# персони) — тут достатньо впізнаваного маркера.
+RETRY_NOTE = "(тест: сформулюй відповідь звичайним текстом)"
+
 # ---------------- фейковий LLM і виклики тулів ----------------
 
 
@@ -57,7 +61,9 @@ def tctx():
 
 async def test_run_agent_direct_text(tctx):
     llm = FakeLLM([(_msg(content="проста відповідь"), 100, 20)])
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert result.text == "проста відповідь"
     assert result.llm_calls == 1
     assert result.prompt_tokens == 100
@@ -67,7 +73,9 @@ async def test_run_agent_direct_text(tctx):
 
 async def test_run_agent_empty_content_placeholder(tctx):
     llm = FakeLLM([(_msg(content=""), 10, 0)])
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert "порожню відповідь" in result.text
 
 
@@ -87,7 +95,9 @@ async def test_run_agent_tool_then_text(tctx, monkeypatch):
         ]
     )
     messages = []
-    result = await run_agent(llm, messages, tctx, max_iterations=6, schemas=[{"x": 1}])
+    result = await run_agent(
+        llm, messages, tctx, max_iterations=6, schemas=[{"x": 1}], markup_retry_note=RETRY_NOTE
+    )
 
     assert result.text == "фінальна відповідь"
     assert result.llm_calls == 2
@@ -111,7 +121,9 @@ async def test_run_agent_last_iteration_no_tools(tctx, monkeypatch):
         for i in range(5)
     ]
     llm = FakeLLM(scripted)
-    result = await run_agent(llm, [], tctx, max_iterations=3, schemas=[{"x": 1}])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=3, schemas=[{"x": 1}], markup_retry_note=RETRY_NOTE
+    )
 
     # рівно max_iterations викликів
     assert llm.calls == 3
@@ -141,7 +153,9 @@ async def test_run_agent_accumulates_multiple_tool_calls(tctx, monkeypatch):
             (_msg(content="готово"), 5, 1),
         ]
     )
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[{"x": 1}])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[{"x": 1}], markup_retry_note=RETRY_NOTE
+    )
     assert len(result.tool_calls) == 2
 
 
@@ -261,14 +275,16 @@ async def test_web_search_wraps_in_wait_for(tctx, monkeypatch):
 async def test_run_agent_thinking_passed_through(tctx):
     """thinking із виклику run_agent доходить незмінним до кожного llm.chat."""
     llm = FakeLLM([(_msg(content="ок"), 10, 2)])
-    await run_agent(llm, [], tctx, max_iterations=6, schemas=[], thinking=False)
+    await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], thinking=False, markup_retry_note=RETRY_NOTE
+    )
     assert llm.thinking_seen == [False]
 
 
 async def test_run_agent_thinking_default_none(tctx):
     """Без явного thinking run_agent нічого не нав'язує (None = не чіпати cfg)."""
     llm = FakeLLM([(_msg(content="ок"), 10, 2)])
-    await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    await run_agent(llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE)
     assert llm.thinking_seen == [None]
 
 
@@ -283,7 +299,15 @@ async def test_run_agent_thinking_same_on_every_iteration(tctx, monkeypatch):
             (_msg(content="готово"), 5, 1),
         ]
     )
-    await run_agent(llm, [], tctx, max_iterations=6, schemas=[{"x": 1}], thinking=False)
+    await run_agent(
+        llm,
+        [],
+        tctx,
+        max_iterations=6,
+        schemas=[{"x": 1}],
+        thinking=False,
+        markup_retry_note=RETRY_NOTE,
+    )
     assert llm.thinking_seen == [False, False]
 
 
@@ -299,7 +323,9 @@ _DIRTY = "Ось білд <longcat_tool_call>zzz_describe<longcat_arg_key>kind"
 async def test_sanitizer_clean_final_untouched(tctx):
     """Чистий фінал без розмітки — жодного зайвого виклику, жодної мітки."""
     llm = FakeLLM([(_msg(content="звичайна відповідь"), 10, 2)])
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert result.text == "звичайна відповідь"
     assert result.llm_calls == 1
     assert "🧯 маркап-ретрай" not in result.tool_calls
@@ -313,7 +339,9 @@ async def test_sanitizer_dirty_then_clean_retry(tctx):
             (_msg(content="Ось нормальний білд без розмітки."), 8, 3),
         ]
     )
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert result.text == "Ось нормальний білд без розмітки."
     assert "<longcat_tool_call" not in result.text
     assert result.tool_calls == ["🧯 маркап-ретрай"]
@@ -330,7 +358,9 @@ async def test_sanitizer_double_dirty_strips_and_fallback(tctx):
             (_msg(content="<longcat_tool_call>zzz_search<longcat_arg_key>query"), 8, 3),
         ]
     )
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert "<longcat_tool_call" not in result.text
     assert "переформулюй" in result.text or "/reset" in result.text
     assert result.tool_calls == ["🧯 маркап-ретрай"]
@@ -345,7 +375,9 @@ async def test_sanitizer_double_dirty_strips_keeps_remainder(tctx):
             (_msg(content=f"{tail} <longcat_tool_call>zzz_search<longcat_arg_key>q"), 8, 3),
         ]
     )
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[], markup_retry_note=RETRY_NOTE
+    )
     assert "<longcat_tool_call" not in result.text
     assert tail in result.text
     assert result.tool_calls == ["🧯 маркап-ретрай"]
@@ -366,7 +398,9 @@ async def test_sanitizer_markup_not_in_final_ignored(tctx, monkeypatch):
             (_msg(content="Чистий фінал."), 5, 1),
         ]
     )
-    result = await run_agent(llm, [], tctx, max_iterations=6, schemas=[{"x": 1}])
+    result = await run_agent(
+        llm, [], tctx, max_iterations=6, schemas=[{"x": 1}], markup_retry_note=RETRY_NOTE
+    )
     assert result.text == "Чистий фінал."
     assert "🧯 маркап-ретрай" not in result.tool_calls
     assert result.llm_calls == 2

@@ -20,8 +20,6 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from persona import DEFAULT_PERSONA
-
 KINDS = ("agents", "wengines", "discs", "bangboo")
 
 # --- кирилиця -> латиниця для матчингу імен («Пульхра» -> pulhra -> Pulchra) ---
@@ -218,11 +216,12 @@ class ZZZDatabase:
         limit: int = 3,
         max_chars: int = 6000,
         *,
-        header: str = DEFAULT_PERSONA.zzz_reference_header,
+        header: str,
     ) -> tuple[str | None, list[str]]:
         """Детермінований пошук сутностей у повідомленні -> готовий блок для промпта.
-        header — шапка блоку (береться з персони). Повертає (блок або None,
-        список знайдених імен для футера)."""
+        header — шапка блоку; обов'язкова й приходить із персони, щоб забутий
+        аргумент падав тут, а не підкладав вбудований текст. Повертає
+        (блок або None, список знайдених імен для футера)."""
         if not self.loaded or not text:
             return None, []
         words = _WORD_RE.findall(text)
