@@ -119,10 +119,11 @@ comma-separated.
   channel mode), `FOOTER_STATS` — a footer with tools called and tokens
   spent, `REPLY_BUTTONS` — 🔁 (reroll, author-only) and 🧹 (forget
   conversation) buttons.
-- **Language guard:** `LANG_GUARD=ru` — if a reply comes back entirely in
-  Ukrainian, the bot does one corrective retry in Russian (a deterministic
-  heuristic based on the letters і/ї/є/ґ; system/utility text is excluded
-  from the retry).
+- **Language guard:** `LANG_GUARD=true` — if a reply comes back in
+  Ukrainian although the persona speaks another language, the bot does one
+  corrective retry (a deterministic heuristic based on the letters і/ї/є/ґ).
+  The wording of that retry comes from the persona; system and utility text
+  is excluded from the retry.
 - **ZZZ mode:** `/mode` switches a channel into the ZZZ advisor. In this
   mode, ZZZ-specific tools and deterministic auto-injected context for
   entities mentioned in the message (📦 markers in the footer) are added to
@@ -153,15 +154,26 @@ comma-separated.
 | `CHAT_MAX_TOOL_ITERATIONS` | `6` | cap on tool-loop steps |
 | `LLM_MAX_CONCURRENCY` | `2` | concurrent requests to LongCat |
 | `CHAT_SYSTEM_PROMPT` | built-in | your own system prompt |
+| `PERSONA_FILE` | `persona.toml` | file with the persona texts; no file = built-in texts |
 | `WEB_TOOLS_ENABLED` | `true` | wiki + web search as LLM tools |
 | `EMBED_REPLIES` | `true` | replies as embeds |
 | `FOOTER_STATS` | `true` | footer with tools/token stats |
 | `REPLY_BUTTONS` | `true` | 🔁/🧹 buttons under a reply |
-| `LANG_GUARD` | — | `ru` = retry fully-Ukrainian replies; empty = disabled |
+| `LANG_GUARD` | `false` | `true`/`false`: one corrective retry when a reply drifts off the persona's language |
 | `GUILD_IDS` | — | server IDs for instant command sync |
 | `WELCOME_CHANNEL_ID` | — | welcome-message channel (empty = disabled) |
 | `LEVELS_ENABLED` | `true` | XP system |
 | `DATABASE_PATH` / `LOG_LEVEL` / `LOG_FILE` | `bot.db` / `INFO` / `bot.log` | self-explanatory |
+
+### Persona file
+
+The seven service texts the model sees — the style rules, the trailing
+reminder, the memory-reset marker and the three retry/header notes — ship
+as neutral Ukrainian defaults in `persona.py`. To give the bot a voice of
+its own, copy `persona.example.toml` to `persona.toml` and override any
+subset of the keys; the file is gitignored, and leaving it out keeps the
+defaults. An unknown key or a stray placeholder aborts startup by name
+rather than silently falling back to a default.
 
 ## Structure
 
@@ -169,6 +181,7 @@ comma-separated.
 longcat-discord-bot/
 ├── bot.py              # entry point: intents, cogs, sync, error handling
 ├── config.py           # .env loading
+├── persona.py          # persona texts: built-in defaults + optional local file
 ├── database.py         # aiosqlite: history, reminders, warns, XP, channel modes
 ├── utils.py            # 2000-char splitter, fix_tables, time parsing, dice
 ├── llm/
