@@ -11,6 +11,7 @@ import json
 
 import pytest
 
+from persona import DEFAULT_PERSONA
 from zzz.db import ZZZDatabase
 
 AGENTS = {
@@ -266,7 +267,7 @@ def test_auto_context_finds_entity(zdb):
     block, labels = zdb.auto_context("розкажи про Miyabi білд")
     assert block is not None
     assert "Miyabi" in labels
-    assert "СПРАВОЧНЫЕ ДАННЫЕ" in block
+    assert DEFAULT_PERSONA.zzz_reference_header in block
 
 
 def test_auto_context_cyrillic_translit(zdb):

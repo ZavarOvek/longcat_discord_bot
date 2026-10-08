@@ -271,7 +271,7 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
     scripted = [
         AgentResult(text=ua, llm_calls=1),
         AgentResult(
-            text="Привет, это ответ по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1
+            text="Hello, this is the reply", prompt_tokens=10, completion_tokens=5, llm_calls=1
         ),
     ]
 
@@ -284,13 +284,13 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
 
     result, zzz_mode = await cog._run(_message(cog.bot))
     assert zzz_mode is False
-    assert result.text == "Привет, это ответ по-русски"
+    assert result.text == "Hello, this is the reply"
     assert "🌐 мовний ретрай" in result.tool_calls
     # статистика ретраю додана до основного результату
     assert result.prompt_tokens == 10
     assert result.completion_tokens == 5
     # відповідь збережена в історію
-    assert db.messages[-1] == {"role": "assistant", "content": "Привет, это ответ по-русски"}
+    assert db.messages[-1] == {"role": "assistant", "content": "Hello, this is the reply"}
 
 
 @pytest.mark.asyncio
@@ -301,12 +301,12 @@ async def test_lang_guard_keeps_russian(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(text="Уже по-русски, всё хорошо", llm_calls=1)
+        return AgentResult(text="Already fine, nothing to fix", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, _ = await cog._run(_message(cog.bot))
-    assert result.text == "Уже по-русски, всё хорошо"
+    assert result.text == "Already fine, nothing to fix"
     assert "🌐 мовний ретрай" not in result.tool_calls
 
 
@@ -382,14 +382,14 @@ async def test_run_no_guard_stores_and_returns(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(text="Обычный ответ", llm_calls=1)
+        return AgentResult(text="Plain reply", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, zzz_mode = await cog._run(_message(cog.bot))
     assert zzz_mode is False
-    assert result.text == "Обычный ответ"
-    assert db.messages[-1] == {"role": "assistant", "content": "Обычный ответ"}
+    assert result.text == "Plain reply"
+    assert db.messages[-1] == {"role": "assistant", "content": "Plain reply"}
 
 
 @pytest.mark.asyncio
@@ -447,7 +447,7 @@ async def test_run_autocontext_labels_prefixed(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(text="Ответ по ZZZ", tool_calls=["🔧 zzz_search"], llm_calls=1)
+        return AgentResult(text="ZZZ reply", tool_calls=["🔧 zzz_search"], llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -469,7 +469,7 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
     ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм"
     scripted = [
         AgentResult(text=ua, llm_calls=1),
-        AgentResult(text="Ответ по-русски", llm_calls=1),
+        AgentResult(text="Corrected reply", llm_calls=1),
     ]
 
     async def fake_run_agent(
@@ -480,7 +480,7 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, _ = await cog._run(_message(cog.bot))
-    assert result.text == "Ответ по-русски"
+    assert result.text == "Corrected reply"
     # мітка авто-контексту попереду, мітка вартового — після неї
     assert result.tool_calls == ["📦 Miyabi", "🌐 мовний ретрай"]
 
@@ -503,7 +503,7 @@ async def test_run_thinking_disabled_in_zzz(monkeypatch):
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
         seen.append(thinking)
-        return AgentResult(text="Ответ по ZZZ", llm_calls=1)
+        return AgentResult(text="ZZZ reply", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -524,7 +524,7 @@ async def test_run_thinking_none_in_normal(monkeypatch):
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
         seen.append(thinking)
-        return AgentResult(text="Обычный ответ", llm_calls=1)
+        return AgentResult(text="Plain reply", llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -544,7 +544,7 @@ async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
     ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм"
     scripted = [
         AgentResult(text=ua, llm_calls=1),
-        AgentResult(text="Ответ по-русски", llm_calls=1),
+        AgentResult(text="Corrected reply", llm_calls=1),
     ]
     seen = []
 
@@ -557,7 +557,7 @@ async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, _ = await cog._run(_message(cog.bot))
-    assert result.text == "Ответ по-русски"
+    assert result.text == "Corrected reply"
     # обидва виклики (основний + ретрай вартового) з thinking=False
     assert seen == [False, False]
 
@@ -573,7 +573,7 @@ async def test_run_logs_usage_normal_mode(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(text="Ответ", prompt_tokens=120, completion_tokens=30, llm_calls=1)
+        return AgentResult(text="Reply", prompt_tokens=120, completion_tokens=30, llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -597,9 +597,7 @@ async def test_run_logs_usage_zzz_mode(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(
-            text="Ответ по ZZZ", prompt_tokens=200, completion_tokens=40, llm_calls=1
-        )
+        return AgentResult(text="ZZZ reply", prompt_tokens=200, completion_tokens=40, llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
@@ -616,7 +614,7 @@ async def test_run_logs_usage_includes_guard_retry_tokens(monkeypatch):
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
     scripted = [
         AgentResult(text=ua, prompt_tokens=100, completion_tokens=20, llm_calls=1),
-        AgentResult(text="Привет, по-русски", prompt_tokens=10, completion_tokens=5, llm_calls=1),
+        AgentResult(text="Corrected reply", prompt_tokens=10, completion_tokens=5, llm_calls=1),
     ]
 
     async def fake_run_agent(
@@ -641,12 +639,12 @@ async def test_run_usage_logging_failure_does_not_break_reply(monkeypatch):
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
     ):
-        return AgentResult(text="Ответ", prompt_tokens=1, completion_tokens=1, llm_calls=1)
+        return AgentResult(text="Reply", prompt_tokens=1, completion_tokens=1, llm_calls=1)
 
     monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
 
     result, _ = await cog._run(_message(cog.bot))
-    assert result.text == "Ответ"
+    assert result.text == "Reply"
 
 
 # ---------------- пер-юзерний антифлуд-кулдаун ----------------
