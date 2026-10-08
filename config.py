@@ -17,6 +17,25 @@ def _bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on", "так")
 
 
+# Значення, які _bool вважає явно хибними. Усе інше непорожнє — не «вимкнено»,
+# а одруківка або застаріле значення, і мовчки вимикати вартового на ньому гірше,
+# ніж упасти на старті (LANG_GUARD=ru жив у .env до переходу на булевий тумблер).
+_FALSE_WORDS = ("0", "false", "no", "off", "ні")
+
+
+def _strict_bool(name: str, value: str | None) -> bool:
+    """Булевий тумблер без тихого фолбеку: порожньо = False, невідоме = падіння."""
+    raw = (value or "").strip()
+    if raw == "":
+        return False
+    if _bool(raw):
+        return True
+    if raw.lower() in _FALSE_WORDS:
+        return False
+    print(f"[config] {name} має бути true або false, отримано «{raw}»", file=sys.stderr)
+    raise SystemExit(1)
+
+
 def _opt_bool(value: str | None) -> bool | None:
     """true/false або None, якщо порожньо (параметр не надсилається взагалі)."""
     if value is None or value.strip() == "":
@@ -74,8 +93,9 @@ class Config:
     reply_buttons: bool
     # веб-тули (wiki + web_search) для LLM
     web_tools: bool
-    # мовний вартовий: "ru" = ретраїти повністю українські відповіді, "" = вимкнено
-    lang_guard: str
+    # мовний вартовий: один коригувальний ретрай, якщо відповідь вийшла
+    # українською попри мову персони (текст ретраю — з персони)
+    lang_guard: bool
     # антифлуд: мін. інтервал (с) між LLM-запитами одного юзера, 0 = вимкнено
     user_cooldown_seconds: int
     # інше
@@ -111,7 +131,7 @@ def load_config() -> Config:
         footer_stats=_bool(os.getenv("FOOTER_STATS"), True),
         reply_buttons=_bool(os.getenv("REPLY_BUTTONS"), True),
         web_tools=_bool(os.getenv("WEB_TOOLS_ENABLED"), True),
-        lang_guard=os.getenv("LANG_GUARD", "").strip().lower(),
+        lang_guard=_strict_bool("LANG_GUARD", os.getenv("LANG_GUARD")),
         user_cooldown_seconds=max(0, _int(os.getenv("USER_COOLDOWN_SECONDS"), 5)),
         database_path=os.getenv("DATABASE_PATH", "bot.db").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip(),

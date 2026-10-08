@@ -300,7 +300,7 @@ class ChatCog(commands.Cog, name="Чат"):
         )
         result.text = fix_tables(result.text)
 
-        if cfg.lang_guard == "ru" and looks_ukrainian(result.text):
+        if cfg.lang_guard and looks_ukrainian(result.text):
             await self._apply_lang_guard(result, messages, tctx, schemas, thinking)
 
         if auto_labels:

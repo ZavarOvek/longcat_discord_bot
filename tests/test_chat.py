@@ -1,7 +1,7 @@
 """Тести cogs.chat:
 - build_footer / build_embeds (чисте оформлення, без Discord-мережі);
 - _clear_history лишає reset_marker персони першим у пам'яті;
-- мовний вартовий у _run: український текст при lang_guard="ru" ретраїться,
+- мовний вартовий у _run: український текст при lang_guard=True ретраїться,
   вдалий ретрай замінює відповідь і додає ярлик; невдалий — лишає як є.
 
 run_agent мокається на рівні модуля cogs.chat, тому реальний LLM не потрібен.
@@ -10,6 +10,7 @@ Discord-обʼєкти (bot, message, channel) — легкі SimpleNamespace-ф
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -204,7 +205,7 @@ def _config(**over):
     base = dict(  # noqa: C408 — kwargs form keeps this long literal readable
         web_tools=False,
         persona=DEFAULT_PERSONA,
-        lang_guard="ru",
+        lang_guard=True,
         history_token_limit=24000,
         max_tool_iterations=6,
         system_prompt="",
@@ -264,7 +265,7 @@ async def test_clear_history_empty_channel():
 @pytest.mark.asyncio
 async def test_lang_guard_retries_ukrainian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     # 1-й прогін — українською (вартовий має спрацювати), ретрай — російською.
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
@@ -296,7 +297,7 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
 @pytest.mark.asyncio
 async def test_lang_guard_keeps_russian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
@@ -313,7 +314,7 @@ async def test_lang_guard_keeps_russian(monkeypatch):
 @pytest.mark.asyncio
 async def test_lang_guard_disabled(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="")))
+    cog = ChatCog(_bot(db, _config(lang_guard=False)))
 
     calls = []
 
@@ -334,7 +335,7 @@ async def test_lang_guard_disabled(monkeypatch):
 @pytest.mark.asyncio
 async def test_lang_guard_failed_retry_keeps_original(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     original = "Українською їжею ґрунт відповідь їжа їжа"
     scripted = [
@@ -357,6 +358,33 @@ async def test_lang_guard_failed_retry_keeps_original(monkeypatch):
     assert db.messages[-1] == {"role": "assistant", "content": original}
 
 
+@pytest.mark.asyncio
+async def test_lang_guard_sends_retry_note_from_persona(monkeypatch):
+    # текст ретраю — виключно з персони; жодного вшитого в код формулювання
+    db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
+    persona = replace(DEFAULT_PERSONA, lang_guard_retry_note="МАРКЕР-РЕТРАЮ")
+    cog = ChatCog(_bot(db, _config(lang_guard=True, persona=persona)))
+
+    ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм"
+    scripted = [AgentResult(text=ua, llm_calls=1), AgentResult(text="Corrected", llm_calls=1)]
+    seen: list[list[dict]] = []
+
+    async def fake_run_agent(
+        llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
+    ):
+        seen.append(list(messages))
+        return scripted.pop(0)
+
+    monkeypatch.setattr(chat_mod, "run_agent", fake_run_agent)
+
+    result, _ = await cog._run(_message(cog.bot))
+    assert result.text == "Corrected"
+    # у повторний виклик пішла забракована відповідь + саме текст із персони
+    retry_messages = seen[1]
+    assert retry_messages[-2] == {"role": "assistant", "content": ua}
+    assert retry_messages[-1] == {"role": "user", "content": "МАРКЕР-РЕТРАЮ"}
+
+
 # ---------------- характеризація _run (фіксація до рефакторингу) ----------------
 # Ці тести пришпилюють поточну поведінку _run: порядок fix_tables → вартовий →
 # мітки → запис в історію. Після розбиття _run вони мають лишитись незмінними.
@@ -377,7 +405,7 @@ class FakeZZZ:
 @pytest.mark.asyncio
 async def test_run_no_guard_stores_and_returns(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="")))
+    cog = ChatCog(_bot(db, _config(lang_guard=False)))
 
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
@@ -396,7 +424,7 @@ async def test_run_no_guard_stores_and_returns(monkeypatch):
 async def test_run_applies_fix_tables_before_guard(monkeypatch):
     # fix_tables перетворює |-таблицю на рядки; вартовий дивиться вже на виправлений текст
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     raw = "| A | B |\n| --- | --- |\n| 1 | 2 |"
 
@@ -416,7 +444,7 @@ async def test_run_applies_fix_tables_before_guard(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_retry_called_at_most_once(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     ua = "Її їжа їде їжею, ґрунт і їжак — українською їй їм ще"
     calls = []
@@ -440,7 +468,7 @@ async def test_run_retry_called_at_most_once(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_autocontext_labels_prefixed(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: розкажи про Miyabi"}], mode="zzz")
-    bot = _bot(db, _config(lang_guard=""))
+    bot = _bot(db, _config(lang_guard=False))
     bot.zzz_db = FakeZZZ(block="[дані про Miyabi]", labels=["Miyabi", "Yanagi"])
     cog = ChatCog(bot)
 
@@ -462,7 +490,7 @@ async def test_run_autocontext_labels_prefixed(monkeypatch):
 async def test_run_autocontext_labels_before_guard_label(monkeypatch):
     # порядок у tool_calls: [📦 авто-контекст ..., 🌐 мовний ретрай, ...]
     db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
-    bot = _bot(db, _config(lang_guard="ru"))
+    bot = _bot(db, _config(lang_guard=True))
     bot.zzz_db = FakeZZZ(block="[дані]", labels=["Miyabi"])
     cog = ChatCog(bot)
 
@@ -493,7 +521,7 @@ async def test_run_autocontext_labels_before_guard_label(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_thinking_disabled_in_zzz(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
-    bot = _bot(db, _config(lang_guard=""))
+    bot = _bot(db, _config(lang_guard=False))
     bot.zzz_db = FakeZZZ(block="", labels=[])
     cog = ChatCog(bot)
 
@@ -516,7 +544,7 @@ async def test_run_thinking_disabled_in_zzz(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_thinking_none_in_normal(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="")))
+    cog = ChatCog(_bot(db, _config(lang_guard=False)))
 
     seen = []
 
@@ -537,7 +565,7 @@ async def test_run_thinking_none_in_normal(monkeypatch):
 async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
     # ретрай мовного вартового в zzz успадковує thinking=False основного прогону
     db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
-    bot = _bot(db, _config(lang_guard="ru"))
+    bot = _bot(db, _config(lang_guard=True))
     bot.zzz_db = FakeZZZ(block="", labels=[])
     cog = ChatCog(bot)
 
@@ -568,7 +596,7 @@ async def test_run_lang_guard_retry_inherits_thinking(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_logs_usage_normal_mode(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="")))
+    cog = ChatCog(_bot(db, _config(lang_guard=False)))
 
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
@@ -590,7 +618,7 @@ async def test_run_logs_usage_normal_mode(monkeypatch):
 @pytest.mark.asyncio
 async def test_run_logs_usage_zzz_mode(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: про Miyabi"}], mode="zzz")
-    bot = _bot(db, _config(lang_guard=""))
+    bot = _bot(db, _config(lang_guard=False))
     bot.zzz_db = FakeZZZ(block="", labels=[])
     cog = ChatCog(bot)
 
@@ -609,7 +637,7 @@ async def test_run_logs_usage_zzz_mode(monkeypatch):
 async def test_run_logs_usage_includes_guard_retry_tokens(monkeypatch):
     # запис має відображати сумарні токени (основний прогін + ретрай вартового)
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
-    cog = ChatCog(_bot(db, _config(lang_guard="ru")))
+    cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
     scripted = [
@@ -634,7 +662,7 @@ async def test_run_logs_usage_includes_guard_retry_tokens(monkeypatch):
 async def test_run_usage_logging_failure_does_not_break_reply(monkeypatch):
     # якщо log_usage кидає — відповідь усе одно повертається без винятку
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}], usage_raises=True)
-    cog = ChatCog(_bot(db, _config(lang_guard="")))
+    cog = ChatCog(_bot(db, _config(lang_guard=False)))
 
     async def fake_run_agent(
         llm, messages, tctx, iters, *, schemas, thinking=None, markup_retry_note=None
