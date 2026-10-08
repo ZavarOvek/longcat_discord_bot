@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
+from persona import Persona, load_persona
+
 
 def _bool(value: str | None, default: bool = False) -> bool:
     if value is None or value.strip() == "":
@@ -60,6 +62,8 @@ class Config:
     max_tool_iterations: int
     llm_concurrency: int
     system_prompt: str
+    # службові тексти промптів (вбудовані або з PERSONA_FILE)
+    persona: Persona
     # Discord
     guild_ids: list[int]
     welcome_channel_id: int | None
@@ -99,6 +103,7 @@ def load_config() -> Config:
         max_tool_iterations=max(1, _int(os.getenv("CHAT_MAX_TOOL_ITERATIONS"), 6)),
         llm_concurrency=max(1, _int(os.getenv("LLM_MAX_CONCURRENCY"), 2)),
         system_prompt=os.getenv("CHAT_SYSTEM_PROMPT", ""),
+        persona=load_persona(os.getenv("PERSONA_FILE", "persona.toml").strip() or "persona.toml"),
         guild_ids=_ids(os.getenv("GUILD_IDS")),
         welcome_channel_id=int(welcome_raw) if welcome_raw.isdigit() else None,
         levels_enabled=_bool(os.getenv("LEVELS_ENABLED"), True),

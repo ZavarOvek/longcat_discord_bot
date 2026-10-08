@@ -1,21 +1,27 @@
-"""Тести llm.memory: тримінг історії, STYLE_SUFFIX завжди, TRAILING_REMINDER
-лише після порогу і лише до останньої user-репліки."""
+"""Тести llm.memory: тримінг історії, style_suffix персони завжди,
+trailing_reminder лише після порогу і лише до останньої user-репліки."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 from llm.memory import (
-    STYLE_SUFFIX,
-    TRAILING_REMINDER,
     TRAILING_REMINDER_THRESHOLD,
     build_messages,
     estimate_tokens,
 )
+from persona import DEFAULT_PERSONA
+
+STYLE_SUFFIX = DEFAULT_PERSONA.style_suffix
+TRAILING_REMINDER = DEFAULT_PERSONA.trailing_reminder
 
 
-def _cfg(system_prompt="", history_token_limit=24000):
-    return SimpleNamespace(system_prompt=system_prompt, history_token_limit=history_token_limit)
+def _cfg(system_prompt="", history_token_limit=24000, persona=DEFAULT_PERSONA):
+    return SimpleNamespace(
+        system_prompt=system_prompt,
+        history_token_limit=history_token_limit,
+        persona=persona,
+    )
 
 
 def _rows(pairs):

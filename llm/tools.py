@@ -24,6 +24,7 @@ from urllib.parse import quote
 import discord
 import httpx
 
+from persona import DEFAULT_PERSONA
 from utils import roll_dice
 
 if TYPE_CHECKING:
@@ -501,20 +502,16 @@ _MARKUP_MARKER = "<longcat_tool_call"
 _MARKUP_RE = re.compile(r"<longcat_tool_call.*?(?=<longcat_tool_call|$)", re.DOTALL)
 _MARKUP_MIN_REMAINDER = 30
 _MARKUP_FALLBACK = "⚠️ Не вклався в ліміт кроків — переформулюй запит або /reset."
-_MARKUP_RETRY_NOTE = (
-    "(система: инструменты недоступны — сформулируй финальный ответ обычным "
-    "текстом на основе уже полученных данных, без синтаксиса вызовов)"
-)
 
 
-async def _sanitize_markup(stats, llm, messages, thinking) -> None:
+async def _sanitize_markup(stats, llm, messages, thinking, *, markup_retry_note: str) -> None:
     """Якщо фінальний текст містить сиру розмітку tool-викликів — один
     корекційний ретрай без тулів, а за потреби вирізання блоків регексом."""
     if _MARKUP_MARKER not in stats.text:
         return
     log.warning("Санітайзер: у фінальному тексті сира розмітка tool-викликів, корекційний ретрай")
     messages.append({"role": "assistant", "content": stats.text})
-    messages.append({"role": "user", "content": _MARKUP_RETRY_NOTE})
+    messages.append({"role": "user", "content": markup_retry_note})
     retry = await llm.chat(messages, tools=None, thinking=thinking)
     stats.llm_calls += 1
     stats.prompt_tokens += retry.prompt_tokens
@@ -536,12 +533,14 @@ async def run_agent(
     max_iterations: int,
     schemas: list[dict] | None = None,
     thinking: bool | None = None,
+    markup_retry_note: str = DEFAULT_PERSONA.markup_retry_note,
 ) -> AgentResult:
     """Агентний цикл: модель ↔ інструменти, доки не буде текстової відповіді.
     schemas — набір схем для цього запиту (типово базові TOOL_SCHEMAS; режими
     можуть передавати розширений). На останній дозволеній ітерації інструменти
     не передаються — модель змушена відповісти текстом.
     thinking прокидається в кожен llm.chat (пер-режимний контроль мислення).
+    markup_retry_note — текст корекційного ретраю санітайзера (з персони).
     Повертає AgentResult з текстом і статистикою (тули, токени, виклики)."""
     schemas = schemas or TOOL_SCHEMAS
     stats = AgentResult()
@@ -560,7 +559,9 @@ async def run_agent(
             stats.text = (
                 message.content or ""
             ).strip() or "🤔 (модель повернула порожню відповідь)"
-            await _sanitize_markup(stats, llm, messages, thinking)
+            await _sanitize_markup(
+                stats, llm, messages, thinking, markup_retry_note=markup_retry_note
+            )
             return stats
 
         messages.append(

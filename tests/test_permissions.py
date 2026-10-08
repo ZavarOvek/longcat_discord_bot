@@ -17,6 +17,7 @@ from discord import app_commands
 
 from cogs.chat import MEMORY_ADMIN_ONLY, ChatCog, ReplyView, can_manage_memory
 from cogs.zzz import ZZZCog
+from persona import DEFAULT_PERSONA
 
 
 class FakeDB:
@@ -59,7 +60,8 @@ def _interaction(user, guild):
 
 def _cog():
     db = FakeDB()
-    return ChatCog(SimpleNamespace(db=db, config=SimpleNamespace())), db
+    config = SimpleNamespace(persona=DEFAULT_PERSONA)
+    return ChatCog(SimpleNamespace(db=db, config=config)), db
 
 
 # ---------------- can_manage_memory ----------------
@@ -99,7 +101,7 @@ async def test_reset_allowed_for_admin_in_guild():
     cog, db = _cog()
     interaction = _interaction(_member(admin=True), GUILD)
     await ChatCog.reset.callback(cog, interaction)
-    assert db.messages == [{"role": "user", "content": ChatCog.RESET_MARKER}]
+    assert db.messages == [{"role": "user", "content": DEFAULT_PERSONA.reset_marker}]
 
 
 @pytest.mark.asyncio
@@ -107,7 +109,7 @@ async def test_reset_allowed_in_dm():
     cog, db = _cog()
     interaction = _interaction(SimpleNamespace(id=1), None)
     await ChatCog.reset.callback(cog, interaction)
-    assert db.messages == [{"role": "user", "content": ChatCog.RESET_MARKER}]
+    assert db.messages == [{"role": "user", "content": DEFAULT_PERSONA.reset_marker}]
 
 
 # ---------------- кнопка 🧹 ----------------
@@ -129,7 +131,7 @@ async def test_forget_button_allowed_for_admin():
     view = ReplyView(cog, user_message=SimpleNamespace(author=SimpleNamespace(id=1)))
     interaction = _interaction(_member(admin=True), GUILD)
     await view.forget_button.callback(interaction)
-    assert db.messages == [{"role": "user", "content": ChatCog.RESET_MARKER}]
+    assert db.messages == [{"role": "user", "content": DEFAULT_PERSONA.reset_marker}]
 
 
 # ---------------- /mode і /zzz_reload ----------------

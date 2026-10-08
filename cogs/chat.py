@@ -21,7 +21,7 @@ from discord.ext import commands
 from llm.memory import build_messages, estimate_tokens
 from llm.tools import BASE_TOOL_SCHEMAS, TOOL_SCHEMAS, AgentResult, ToolContext, run_agent
 from utils import fix_tables, looks_ukrainian, split_message
-from zzz.tools import ZZZ_MODE_PROMPT, ZZZ_TOOL_SCHEMAS
+from zzz.tools import ZZZ_TOOL_SCHEMAS
 
 log = logging.getLogger(__name__)
 
@@ -152,14 +152,6 @@ class ReplyView(discord.ui.View):
 
 
 class ChatCog(commands.Cog, name="Чат"):
-    # Позначка, що лишається першою в історії після чистки: бот завжди знає,
-    # що була амнезія, і не дає дописувати собі минуле, якого не існує.
-    RESET_MARKER = (
-        "(системная отметка: память этого канала только что очищена владельцем. "
-        "Более ранних сообщений у тебя НЕТ — если собеседники ссылаются на «вчера» "
-        "или «ты говорил», не подтверждай и не выдумывай: этой памяти не существует.)"
-    )
-
     def __init__(self, bot):
         self.bot = bot
         self._locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -189,9 +181,11 @@ class ChatCog(commands.Cog, name="Чат"):
         return True
 
     async def _clear_history(self, channel_id: int, guild_id: int | None) -> int:
-        """Чистка пам'яті каналу + надгробок-позначка."""
+        """Чистка пам'яті каналу + надгробок-позначка: бот завжди знає, що була
+        амнезія, і не дає дописувати собі минуле, якого не існує."""
         deleted = await self.bot.db.clear_chat_history(channel_id)
-        await self.bot.db.add_chat_message(channel_id, guild_id, "user", self.RESET_MARKER)
+        marker = self.bot.config.persona.reset_marker
+        await self.bot.db.add_chat_message(channel_id, guild_id, "user", marker)
         return deleted
 
     # ---------------- тригери ----------------
@@ -302,6 +296,7 @@ class ChatCog(commands.Cog, name="Чат"):
             cfg.max_tool_iterations,
             schemas=schemas,
             thinking=thinking,
+            markup_retry_note=cfg.persona.markup_retry_note,
         )
         result.text = fix_tables(result.text)
 
@@ -344,10 +339,14 @@ class ChatCog(commands.Cog, name="Чат"):
         if not zzz_mode:
             return "", schemas, False, [], None
 
-        system_suffix = ZZZ_MODE_PROMPT.format(version=zzz_db.meta.get("game_version", "?"))
+        system_suffix = cfg.persona.zzz_mode_prompt.format(
+            version=zzz_db.meta.get("game_version", "?")
+        )
         schemas = schemas + ZZZ_TOOL_SCHEMAS
         last_user = next((row["content"] for row in reversed(rows) if row["role"] == "user"), "")
-        auto_block, auto_labels = zzz_db.auto_context(last_user)
+        auto_block, auto_labels = zzz_db.auto_context(
+            last_user, header=cfg.persona.zzz_reference_header
+        )
         if auto_block:
             system_suffix = f"{system_suffix}\n\n{auto_block}"
         return system_suffix, schemas, True, auto_labels, ZZZ_THINKING_OVERRIDE
@@ -364,18 +363,18 @@ class ChatCog(commands.Cog, name="Чат"):
         Мутує result: один ретрай, і лише вдалий (не-український) замінює текст.
         thinking успадковується від основного прогону (у ZZZ лишається вимкненим)."""
         log.info("Мовний вартовий: відповідь українською, роблю коригувальний ретрай")
+        persona = self.bot.config.persona
         messages.append({"role": "assistant", "content": result.text})
-        messages.append(
-            {
-                "role": "user",
-                "content": (
-                    "(система: ответ выше написан по-украински — это нарушает правило языка "
-                    "персоны. Перепиши его по-русски, сохранив содержание, тон и ремарку. "
-                    "Выведи ТОЛЬКО переписанный ответ.)"
-                ),
-            }
+        messages.append({"role": "user", "content": persona.lang_guard_retry_note})
+        retry = await run_agent(
+            self.bot.llm,
+            messages,
+            tctx,
+            1,
+            schemas=schemas,
+            thinking=thinking,
+            markup_retry_note=persona.markup_retry_note,
         )
-        retry = await run_agent(self.bot.llm, messages, tctx, 1, schemas=schemas, thinking=thinking)
         result.prompt_tokens += retry.prompt_tokens
         result.completion_tokens += retry.completion_tokens
         result.llm_calls += retry.llm_calls

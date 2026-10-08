@@ -20,6 +20,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from persona import DEFAULT_PERSONA
+
 KINDS = ("agents", "wengines", "discs", "bangboo")
 
 # --- кирилиця -> латиниця для матчингу імен («Пульхра» -> pulhra -> Pulchra) ---
@@ -211,10 +213,16 @@ class ZZZDatabase:
         return results
 
     def auto_context(
-        self, text: str, limit: int = 3, max_chars: int = 6000
+        self,
+        text: str,
+        limit: int = 3,
+        max_chars: int = 6000,
+        *,
+        header: str = DEFAULT_PERSONA.zzz_reference_header,
     ) -> tuple[str | None, list[str]]:
         """Детермінований пошук сутностей у повідомленні -> готовий блок для промпта.
-        Повертає (блок або None, список знайдених імен для футера)."""
+        header — шапка блоку (береться з персони). Повертає (блок або None,
+        список знайдених імен для футера)."""
         if not self.loaded or not text:
             return None, []
         words = _WORD_RE.findall(text)
@@ -251,11 +259,6 @@ class ZZZDatabase:
             labels.append(str(display))
             total += len(block)
 
-        header = (
-            "СПРАВОЧНЫЕ ДАННЫЕ ИЗ БАЗЫ по сущностям, упомянутым в сообщении. Они уже "
-            "проверены — используй их вместо памяти; эти же записи повторно инструментами "
-            "не запрашивай, недостающее добирай точечно."
-        )
         return header + "\n\n" + "\n\n".join(blocks), labels
 
     def match_bangboo(self, team: list[str]) -> str:
