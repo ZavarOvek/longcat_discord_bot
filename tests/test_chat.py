@@ -267,7 +267,7 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
-    # 1-й прогін — українською (вартовий має спрацювати), ретрай — російською.
+    # 1-й прогін — українською (вартовий має спрацювати), ретрай — не українською.
     ua = "Привіт! Її їжа їде їжею, ґрунт і їжак — ось моя відповідь тобі їй їм"
     scripted = [
         AgentResult(text=ua, llm_calls=1),
@@ -295,7 +295,7 @@ async def test_lang_guard_retries_ukrainian(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_lang_guard_keeps_russian(monkeypatch):
+async def test_lang_guard_keeps_non_ukrainian(monkeypatch):
     db = FakeDB(history=[{"role": "user", "content": "Юзер: питання"}])
     cog = ChatCog(_bot(db, _config(lang_guard=True)))
 
