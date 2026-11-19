@@ -204,7 +204,7 @@ longcat-discord-bot/
 
 ```
 :: inside the activated .venv
-pip install pytest pytest-asyncio
+pip install -r requirements-dev.txt
 pytest -q
 ```
 
