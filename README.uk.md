@@ -3,7 +3,7 @@
 # 🐈‍⬛ LongCat Discord Bot
 
 [![Tests](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml/badge.svg)](https://github.com/ZavarOvek/longcat_discord_bot/actions/workflows/tests.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![Python 3.11–3.12](https://img.shields.io/badge/python-3.11%E2%80%933.12-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -42,7 +42,7 @@ XP-рівні на кшталт MEE6 (`/rank` `/leaderboard`) — останні
 
 ## Вимоги
 
-- **Python 3.11+**
+- **Python 3.11–3.12** (у 3.13 прибрали `audioop`, без якого discord.py не працює)
 - Ключ [LongCat API Platform](https://longcat.chat/platform)
 
 ## Установка
@@ -194,7 +194,7 @@ longcat-discord-bot/
 
 ```
 :: у активованому .venv
-pip install pytest pytest-asyncio
+pip install -r requirements-dev.txt
 pytest -q
 ```
 

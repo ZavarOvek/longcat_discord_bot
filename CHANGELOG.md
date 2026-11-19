@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- `pytest.ini`: явно задано `asyncio_default_fixture_loop_scope = function`
+  (прибирає deprecation-попередження pytest-asyncio); у README команда
+  встановлення тестових залежностей замінена на `requirements-dev.txt`.
+
 ## Персона бота поза репозиторієм
 
 - **Сім службових текстів промптів переїхали у `persona.py`** — правила
